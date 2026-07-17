@@ -24,6 +24,10 @@ import {
   getAllSubareas,
   getSystemSettings,
   updateSystemSetting,
+  createDirectorate,
+  updateDirectorate,
+  createSubarea,
+  updateSubarea,
   type RosterEntry,
 } from '@/lib/admin'
 import type { RoleType } from '@/lib/org'
@@ -98,16 +102,193 @@ function AdminPcPage() {
       )}
 
       {activeTab === 'estrutura' && (
-        <div className="flex flex-col items-center justify-center p-12 text-center border rounded-lg bg-card/50 border-dashed">
-          <AlertTriangle className="text-muted-foreground mb-4 size-8" />
-          <p className="text-muted-foreground text-sm">A edição visual da estrutura (Diretorias, Subáreas e Núcleos) será disponibilizada em breve.</p>
-        </div>
+        <OrgStructureManager />
       )}
 
       {activeTab === 'regras' && (
         <SettingsManager />
       )}
     </div>
+  )
+}
+
+function OrgStructureManager() {
+  const queryClient = useQueryClient()
+  const [openDirForm, setOpenDirForm] = useState(false)
+  const [openSubForm, setOpenSubForm] = useState(false)
+  const [editingDir, setEditingDir] = useState<any>(null)
+  const [editingSub, setEditingSub] = useState<any>(null)
+  
+  const [formData, setFormData] = useState({ nome: '', slug: '', parentId: '' })
+
+  const dirsQ = useQuery({ queryKey: ['directorates-all'], queryFn: getAllDirectorates })
+  const areasQ = useQuery({ queryKey: ['subareas-all'], queryFn: getAllSubareas })
+
+  const handleOpenDir = (dir?: any) => {
+    if (dir) {
+      setEditingDir(dir)
+      setFormData({ nome: dir.nome, slug: dir.slug, parentId: '' })
+    } else {
+      setEditingDir(null)
+      setFormData({ nome: '', slug: '', parentId: '' })
+    }
+    setOpenDirForm(true)
+  }
+
+  const handleOpenSub = (dirId: string, sub?: any) => {
+    if (sub) {
+      setEditingSub(sub)
+      setFormData({ nome: sub.nome, slug: sub.slug, parentId: dirId })
+    } else {
+      setEditingSub(null)
+      setFormData({ nome: '', slug: '', parentId: dirId })
+    }
+    setOpenSubForm(true)
+  }
+
+  const dirMut = useMutation({
+    mutationFn: async () => {
+      if (editingDir) {
+        await updateDirectorate(editingDir.id, formData.nome, formData.slug)
+      } else {
+        await createDirectorate(formData.nome, formData.slug)
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingDir ? 'Diretoria atualizada!' : 'Diretoria criada!')
+      queryClient.invalidateQueries({ queryKey: ['directorates-all'] })
+      setOpenDirForm(false)
+    },
+    onError: (err: any) => toast.error(err.message || 'Erro ao salvar diretoria.')
+  })
+
+  const subMut = useMutation({
+    mutationFn: async () => {
+      if (editingSub) {
+        await updateSubarea(editingSub.id, formData.nome, formData.slug)
+      } else {
+        await createSubarea(formData.parentId, formData.nome, formData.slug)
+      }
+    },
+    onSuccess: () => {
+      toast.success(editingSub ? 'Área atualizada!' : 'Área criada!')
+      queryClient.invalidateQueries({ queryKey: ['subareas-all'] })
+      setOpenSubForm(false)
+    },
+    onError: (err: any) => toast.error(err.message || 'Erro ao salvar área.')
+  })
+
+  if (dirsQ.isLoading || areasQ.isLoading) {
+    return <p className="text-muted-foreground text-sm">Carregando estrutura...</p>
+  }
+
+  return (
+    <Card className="border-muted shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-lg">Estrutura de Diretorias e Áreas</CardTitle>
+          <CardDescription>
+            Gerencie como a empresa está dividida. As áreas cadastradas aqui aparecerão no cadastro dos novos membros.
+          </CardDescription>
+        </div>
+        <Button onClick={() => handleOpenDir()} size="sm">Adicionar Diretoria</Button>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {dirsQ.data?.map((dir) => {
+          const subs = areasQ.data?.filter(a => a.directorate_id === dir.id) || []
+          
+          return (
+            <details key={dir.id} className="group border rounded-lg bg-card overflow-hidden">
+              <summary className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="font-semibold">{dir.nome}</span>
+                  <Badge variant="secondary" className="font-mono text-[10px]">{dir.slug}</Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-xs text-muted-foreground">{subs.length} áreas</span>
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={(e) => { e.preventDefault(); handleOpenDir(dir) }}>
+                    Editar
+                  </Button>
+                  <svg className="size-4 text-muted-foreground transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </summary>
+              <div className="p-4 pt-0 border-t bg-muted/10">
+                <div className="flex flex-col gap-2 mt-4">
+                  {subs.map(sub => (
+                    <div key={sub.id} className="flex items-center justify-between p-2 pl-4 border-l-2 border-primary/20 hover:border-primary transition-colors rounded-r-md hover:bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{sub.nome}</span>
+                        <span className="text-xs text-muted-foreground font-mono">({sub.slug})</span>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => handleOpenSub(dir.id, sub)}>
+                        Editar Área
+                      </Button>
+                    </div>
+                  ))}
+                  {subs.length === 0 && <p className="text-xs text-muted-foreground pl-4">Nenhuma área cadastrada.</p>}
+                  
+                  <div className="pl-4 mt-2">
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleOpenSub(dir.id)}>
+                      + Nova Área
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )
+        })}
+
+        {/* Modal de Diretoria */}
+        <Dialog open={openDirForm} onOpenChange={setOpenDirForm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingDir ? 'Editar Diretoria' : 'Nova Diretoria'}</DialogTitle>
+              <DialogDescription>Uma diretoria é o nível mais alto de agrupamento da empresa.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); dirMut.mutate() }} className="flex flex-col gap-4 mt-2">
+              <div className="flex flex-col gap-2">
+                <Label>Nome da Diretoria</Label>
+                <Input value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} required placeholder="Ex: Negócios" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Slug (identificador URL)</Label>
+                <Input value={formData.slug} onChange={(e) => setFormData({...formData, slug: e.target.value})} required placeholder="Ex: negocios" pattern="[a-z0-9_]+" title="Apenas letras minúsculas, números e underline" />
+                <span className="text-[10px] text-muted-foreground">Usado internamente pelo sistema. Ex: "pessoas_cultura". Sem espaços.</span>
+              </div>
+              <Button type="submit" disabled={dirMut.isPending} className="mt-2">
+                {dirMut.isPending ? 'Salvando...' : 'Salvar Diretoria'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Subárea */}
+        <Dialog open={openSubForm} onOpenChange={setOpenSubForm}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingSub ? 'Editar Área' : 'Nova Área'}</DialogTitle>
+              <DialogDescription>As áreas pertencem a uma diretoria específica.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={(e) => { e.preventDefault(); subMut.mutate() }} className="flex flex-col gap-4 mt-2">
+              <div className="flex flex-col gap-2">
+                <Label>Nome da Área</Label>
+                <Input value={formData.nome} onChange={(e) => setFormData({...formData, nome: e.target.value})} required placeholder="Ex: Comercial" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Slug (identificador URL)</Label>
+                <Input value={formData.slug} onChange={(e) => setFormData({...formData, slug: e.target.value})} required placeholder="Ex: comercial" pattern="[a-z0-9_]+" title="Apenas letras minúsculas, números e underline" />
+                <span className="text-[10px] text-muted-foreground">Ex: "marketing". Sem espaços ou caracteres especiais.</span>
+              </div>
+              <Button type="submit" disabled={subMut.isPending} className="mt-2">
+                {subMut.isPending ? 'Salvando...' : 'Salvar Área'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   )
 }
 

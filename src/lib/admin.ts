@@ -89,3 +89,27 @@ export async function updateSystemSetting(key: string, value: any) {
     .eq('key', key)
   if (error) throw error
 }
+
+// --------------------------------------------------------
+// Estrutura Organizacional
+// --------------------------------------------------------
+
+export async function createDirectorate(nome: string, slug: string) {
+  const { error } = await supabase.from('directorates').insert([{ nome, slug }])
+  if (error) throw error
+}
+
+export async function updateDirectorate(id: string, nome: string, slug: string) {
+  const { error } = await supabase.from('directorates').update({ nome, slug }).eq('id', id)
+  if (error) throw error
+}
+
+export async function createSubarea(directorate_id: string, nome: string, slug: string) {
+  const { error } = await supabase.from('subareas').insert([{ directorate_id, nome, slug }])
+  if (error) throw error
+}
+
+export async function updateSubarea(id: string, nome: string, slug: string) {
+  const { error } = await supabase.from('subareas').update({ nome, slug }).eq('id', id)
+  if (error) throw error
+}
