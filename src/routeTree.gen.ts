@@ -25,6 +25,7 @@ import { Route as AppMemoriaRouteImport } from './routes/_app/memoria'
 import { Route as AppLideradosRouteImport } from './routes/_app/liderados'
 import { Route as AppFrequenciaRouteImport } from './routes/_app/frequencia'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
+import { Route as AppFidRouteImport } from './routes/_app/fid'
 import { Route as AppDashboardsRouteImport } from './routes/_app/dashboards'
 import { Route as AppComunicadosRouteImport } from './routes/_app/comunicados'
 import { Route as AppComercialRouteImport } from './routes/_app/comercial'
@@ -118,6 +119,11 @@ const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
   path: '/financeiro',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFidRoute = AppFidRouteImport.update({
+  id: '/fid',
+  path: '/fid',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDashboardsRoute = AppDashboardsRouteImport.update({
   id: '/dashboards',
   path: '/dashboards',
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/comercial': typeof AppComercialRoute
   '/comunicados': typeof AppComunicadosRoute
   '/dashboards': typeof AppDashboardsRoute
+  '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
   '/liderados': typeof AppLideradosRoute
@@ -224,6 +231,7 @@ export interface FileRoutesByTo {
   '/comercial': typeof AppComercialRoute
   '/comunicados': typeof AppComunicadosRoute
   '/dashboards': typeof AppDashboardsRoute
+  '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
   '/liderados': typeof AppLideradosRoute
@@ -256,6 +264,7 @@ export interface FileRoutesById {
   '/_app/comercial': typeof AppComercialRoute
   '/_app/comunicados': typeof AppComunicadosRoute
   '/_app/dashboards': typeof AppDashboardsRoute
+  '/_app/fid': typeof AppFidRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/frequencia': typeof AppFrequenciaRoute
   '/_app/liderados': typeof AppLideradosRoute
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/comercial'
     | '/comunicados'
     | '/dashboards'
+    | '/fid'
     | '/financeiro'
     | '/frequencia'
     | '/liderados'
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/comercial'
     | '/comunicados'
     | '/dashboards'
+    | '/fid'
     | '/financeiro'
     | '/frequencia'
     | '/liderados'
@@ -349,6 +360,7 @@ export interface FileRouteTypes {
     | '/_app/comercial'
     | '/_app/comunicados'
     | '/_app/dashboards'
+    | '/_app/fid'
     | '/_app/financeiro'
     | '/_app/frequencia'
     | '/_app/liderados'
@@ -490,6 +502,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFinanceiroRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/fid': {
+      id: '/_app/fid'
+      path: '/fid'
+      fullPath: '/fid'
+      preLoaderRoute: typeof AppFidRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/dashboards': {
       id: '/_app/dashboards'
       path: '/dashboards'
@@ -592,6 +611,7 @@ interface AppRouteChildren {
   AppComercialRoute: typeof AppComercialRoute
   AppComunicadosRoute: typeof AppComunicadosRoute
   AppDashboardsRoute: typeof AppDashboardsRoute
+  AppFidRoute: typeof AppFidRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppFrequenciaRoute: typeof AppFrequenciaRoute
   AppLideradosRoute: typeof AppLideradosRoute
@@ -621,6 +641,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppComercialRoute: AppComercialRoute,
   AppComunicadosRoute: AppComunicadosRoute,
   AppDashboardsRoute: AppDashboardsRoute,
+  AppFidRoute: AppFidRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppFrequenciaRoute: AppFrequenciaRoute,
   AppLideradosRoute: AppLideradosRoute,
@@ -652,3 +673,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

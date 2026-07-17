@@ -36,7 +36,6 @@ import * as D from '@/lib/dashboards'
 import { canEditDirectorate } from '@/lib/permissions'
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-const ANO_BJ = 2026
 const pctLabel = (frac: number) => `${Math.round(frac * 100)}%`
 const num = (s: string) => {
   const v = parseFloat(s)
@@ -190,8 +189,9 @@ function GeralSection() {
 // ============================================================
 function NegociosSection({ canEdit }: { canEdit: boolean }) {
   const { cycle } = useApp()
+  const anoBj = Number(cycle.nome.split('.')[0]) || new Date().getFullYear()
   const qc = useQueryClient()
-  const fatQ = useQuery({ queryKey: ['fat-mensal', ANO_BJ], queryFn: () => D.getFaturamentoMensal(ANO_BJ) })
+  const fatQ = useQuery({ queryKey: ['fat-mensal', anoBj], queryFn: () => D.getFaturamentoMensal(anoBj) })
   const negQ = useQuery({ queryKey: ['dash-negocios'], queryFn: D.getDashNegocios })
   const indQ = useQuery({ queryKey: ['neg-ind', cycle.id], queryFn: () => D.getNegInd(cycle.id) })
 
@@ -214,17 +214,17 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
       onSave={async () => {
         for (const [mesStr, val] of Object.entries(real)) {
           const mes = Number(mesStr)
-          await D.setFaturamentoRealizado(ANO_BJ, mes, val === '' ? null : num(val))
+          await D.setFaturamentoRealizado(anoBj, mes, val === '' ? null : num(val))
         }
         await D.saveNegInd(cycle.id, {
           ticket_medio_meta: ticketMeta === '' ? indQ.data!.ticket_medio_meta : num(ticketMeta),
           conversao_meta: convMeta === '' ? indQ.data!.conversao_meta : num(convMeta) / 100,
         })
-        qc.invalidateQueries({ queryKey: ['fat-mensal', ANO_BJ] })
+        qc.invalidateQueries({ queryKey: ['fat-mensal', anoBj] })
         qc.invalidateQueries({ queryKey: ['neg-ind', cycle.id] })
       }}
     >
-      <p className="text-muted-foreground text-xs">Realizado acumulado por mês (R$) — {ANO_BJ}</p>
+      <p className="text-muted-foreground text-xs">Realizado acumulado por mês (R$) — {anoBj}</p>
       <div className="grid grid-cols-3 gap-2">
         {fat.map((f) => (
           <div key={f.mes} className="flex flex-col gap-1">

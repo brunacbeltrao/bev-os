@@ -360,9 +360,10 @@ function CycleManager({ cycleName }: { cycleName: string }) {
   const [nome, setNome] = useState('')
   const [inicio, setInicio] = useState('')
   const [fim, setFim] = useState('')
+  const [rollover, setRollover] = useState(true)
 
   const mut = useMutation({
-    mutationFn: () => closeAndOpenCycle(nome, inicio, fim),
+    mutationFn: () => closeAndOpenCycle(nome, inicio, fim, rollover),
     onSuccess: () => {
       toast.success(`Ciclo ${nome} iniciado com sucesso! Recarregando...`)
       setOpen(false)
@@ -397,7 +398,7 @@ function CycleManager({ cycleName }: { cycleName: string }) {
               <DialogTitle>Virada de semestre</DialogTitle>
               <DialogDescription>
                 Atenção: Ao iniciar um novo ciclo, o sistema atual será "congelado" no passado e todos os membros
-                perderão o acesso de escrita, exigindo que você suba um novo Roster para o novo semestre.
+                perderão o acesso de escrita.
               </DialogDescription>
             </DialogHeader>
             <form
@@ -420,6 +421,18 @@ function CycleManager({ cycleName }: { cycleName: string }) {
                   <Label>Data de fim</Label>
                   <Input required type="date" value={fim} onChange={(e) => setFim(e.target.value)} />
                 </div>
+              </div>
+              <div className="flex items-center gap-2 mt-2 p-3 bg-muted/50 rounded-md border">
+                <input
+                  type="checkbox"
+                  id="rollover"
+                  className="size-4 accent-primary"
+                  checked={rollover}
+                  onChange={(e) => setRollover(e.target.checked)}
+                />
+                <Label htmlFor="rollover" className="text-sm cursor-pointer leading-tight">
+                  Importar automaticamente os membros ativos do Roster atual para o novo semestre (Recomendado)
+                </Label>
               </div>
               <Button type="submit" disabled={mut.isPending} variant="destructive">
                 {mut.isPending ? 'Iniciando...' : 'Confirmar virada de semestre'}

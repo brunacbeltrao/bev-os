@@ -12,11 +12,12 @@ export interface RosterEntry {
 /**
  * Encerrar o ciclo atual e criar um novo.
  */
-export async function closeAndOpenCycle(novo_nome: string, d_inicio: string, d_fim: string) {
+export async function closeAndOpenCycle(novo_nome: string, d_inicio: string, d_fim: string, b_rollover_roster: boolean = true) {
   const { data, error } = await supabase.rpc('close_and_open_cycle', {
     novo_nome,
     d_inicio,
     d_fim,
+    b_rollover_roster,
   })
   if (error) throw error
   return data // UUID do novo ciclo

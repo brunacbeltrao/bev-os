@@ -12,6 +12,7 @@ import {
   Briefcase,
   CalendarClock,
   CalendarDays,
+  Coins,
   Compass,
   Flag,
   Handshake,
@@ -68,10 +69,11 @@ const GROUPS: ModuleGroup[] = [
     ],
   },
   {
-    titulo: 'Comunicação & Cultura',
+    titulo: 'Vivência & Cultura',
     items: [
       { label: 'Bev News', icon: Newspaper, to: '/bev-news' },
       { label: 'Benchs', icon: Sparkles, to: '/benchs' },
+      { label: 'FID / BevCoins', icon: Coins, to: '/fid' },
     ],
   },
   {
@@ -181,23 +183,23 @@ function AreaNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-const DIREX_ITEMS: Array<{ label: string; to: string; gerenteVe: boolean }> = [
+const DIREX_ITEMS = (cycleName: string): Array<{ label: string; to: string; gerenteVe: boolean }> => [
   { label: 'Resumo (Inbox)', to: '/direx', gerenteVe: true },
   { label: 'To do', to: '/direx/todo', gerenteVe: false },
   { label: 'Reuniões de Diretoria', to: '/direx/atas', gerenteVe: false },
   { label: 'Problemas', to: '/direx/problemas', gerenteVe: false },
-  { label: 'P.E 2026.2', to: '/direx/planejamento', gerenteVe: false },
+  { label: `P.E ${cycleName}`, to: '/direx/planejamento', gerenteVe: false },
 ]
 
 function DirexNav({ onNavigate }: { onNavigate?: () => void }) {
-  const { isDirex } = useApp()
+  const { isDirex, cycle } = useApp()
   const location = useLocation()
   return (
     <nav className="flex flex-col gap-0.5 p-2">
       <div className="text-muted-foreground px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide">
         Direx
       </div>
-      {DIREX_ITEMS.filter((i) => isDirex || i.gerenteVe).map((i) => (
+      {DIREX_ITEMS(cycle.nome).filter((i) => isDirex || i.gerenteVe).map((i) => (
         <Link
           key={i.label}
           to={i.to}
