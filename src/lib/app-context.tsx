@@ -24,6 +24,7 @@ import {
   type Person,
 } from './org'
 import { isDirexMember, isLeaderMember, isPcMember } from './permissions'
+import { getMyWallet } from './fid'
 
 // ---------- Sessão ----------
 
@@ -68,6 +69,7 @@ export interface AppState {
   isDirex: boolean
   isLeader: boolean
   souPC: boolean
+  bevCoinsBalance: number
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -99,6 +101,12 @@ export function AppProvider({
     enabled: !!cycleQ.data,
   })
 
+  const walletQ = useQuery({
+    queryKey: ['my-wallet', cycleQ.data?.id, uid],
+    queryFn: () => getMyWallet(cycleQ.data!.id),
+    enabled: !!cycleQ.data,
+  })
+
 
   const value = useMemo<AppState | null>(() => {
     if (!personQ.data || !cycleQ.data || !occQ.data || occQ.data.length === 0) return null
@@ -115,8 +123,9 @@ export function AppProvider({
       isDirex: isDirexMember(occs),
       isLeader: isLeaderMember(occs),
       souPC: isPcMember(occs),
+      bevCoinsBalance: walletQ.data?.available_balance ?? 0,
     }
-  }, [personQ.data, cycleQ.data, occQ.data, session])
+  }, [personQ.data, cycleQ.data, occQ.data, session, walletQ.data])
 
   if (personQ.isLoading || cycleQ.isLoading || occQ.isLoading) {
     return <>{fallback}</>

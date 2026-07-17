@@ -53,6 +53,7 @@ const GROUPS: ModuleGroup[] = [
   {
     titulo: 'Dia a dia',
     items: [
+      { label: 'Dashboards', icon: BarChart3, to: '/dashboards', onlyLeaders: true },
       { label: 'Calendário', icon: CalendarDays, to: '/agenda' },
       { label: 'Reuniões de Área', icon: CalendarClock, to: '/reunioes' },
       { label: 'Avisos', icon: Megaphone, to: '/comunicados' },
@@ -79,7 +80,6 @@ const GROUPS: ModuleGroup[] = [
     titulo: 'Estratégia',
     items: [
       { label: 'Planejamento Estratégico', icon: Compass, to: '/planejamento' },
-      { label: 'Dashboards', icon: BarChart3, to: '/dashboards', onlyLeaders: true },
       { label: 'Financeiro', icon: Wallet, to: '/financeiro' },
     ],
   },
@@ -143,7 +143,7 @@ function NavItem({
 }
 
 function AreaNav({ onNavigate }: { onNavigate?: () => void }) {
-  const { isLeader, isDirex } = useApp()
+  const { isLeader } = useApp()
   const location = useLocation()
 
   return (
@@ -169,32 +169,6 @@ function AreaNav({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         )
       })}
-      
-      {/* Nova Área de Liderança (Gerente / Diretor) */}
-      {(isLeader || isDirex) && (
-        <div className="flex flex-col gap-1">
-          <Separator className="bg-border/60 my-2" />
-          <div className="text-muted-foreground px-2 text-xs font-semibold uppercase tracking-wider">
-            Liderança
-          </div>
-          
-          {isLeader && (
-            <NavItem
-              item={{ label: 'Painel da Gerência', icon: Target, to: '/gerente' }}
-              active={location.pathname === '/gerente'}
-              onNavigate={onNavigate}
-            />
-          )}
-
-          {isDirex && (
-            <NavItem
-              item={{ label: 'Painel da Diretoria', icon: Compass, to: '/diretor' }}
-              active={location.pathname === '/diretor'}
-              onNavigate={onNavigate}
-            />
-          )}
-        </div>
-      )}
     </nav>
   )
 }
