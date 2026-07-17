@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Settings, Users, Upload, CheckCircle2, AlertTriangle, PlayCircle } from 'lucide-react'
+import { Settings, Users, CheckCircle2, AlertTriangle, PlayCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog,
   DialogContent,
@@ -253,58 +252,46 @@ function CycleManager({ cycleName }: { cycleName: string }) {
 function RosterManager({ cycleId }: { cycleId: string }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [pastedData, setPastedData] = useState('')
+  const [nome, setNome] = useState('')
+  const [email, setEmail] = useState('')
+  const [cargo, setCargo] = useState<RoleType>('assessor')
+  const [areaId, setAreaId] = useState('')
 
-  const dirsQ = useQuery({ queryKey: ['directorates-all'], queryFn: getAllDirectorates })
   const areasQ = useQuery({ queryKey: ['subareas-all'], queryFn: getAllSubareas })
   const rosterQ = useQuery({ queryKey: ['roster', cycleId], queryFn: () => getRoster(cycleId) })
 
-  const parseData = () => {
-    if (!dirsQ.data || !areasQ.data) return []
-    const lines = pastedData.split('\n').map((l) => l.trim()).filter(Boolean)
-    const members: RosterEntry[] = []
-
-    for (const line of lines) {
-      const parts = line.split('\t') // Copiar do excel gera tabulação
-      if (parts.length < 5) continue
-      
-      const [email, nome, roleStr, dirStr, areaStr] = parts.map((p) => p.trim())
-      
-      const dirMatch = dirsQ.data.find((d) => d.nome.toLowerCase() === dirStr.toLowerCase())
-      const areaMatch = areasQ.data.find((a) => a.nome.toLowerCase() === areaStr.toLowerCase())
-      
-      if (dirMatch && areaMatch) {
-        let validRole: RoleType = 'assessor'
-        const rLower = roleStr.toLowerCase()
-        if (rLower.includes('diretor')) validRole = 'diretor'
-        else if (rLower.includes('gerente')) validRole = 'gerente'
-        else if (rLower.includes('coord')) validRole = 'coordenador'
-        else if (rLower.includes('analista')) validRole = 'analista'
-        
-        members.push({
-          email,
-          nome,
-          role: validRole,
-          directorate_id: dirMatch.id,
-          subarea_id: areaMatch.id,
-        })
-      }
+  const handleAdd = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!areaId) {
+      toast.error('Selecione uma área.')
+      return
     }
-    return members
+    const area = areasQ.data?.find((a) => a.id === areaId)
+    if (!area) return
+
+    const newMember: RosterEntry = {
+      email,
+      nome,
+      role: cargo,
+      directorate_id: area.directorate_id,
+      subarea_id: area.id,
+    }
+    mut.mutate([newMember])
   }
 
-  const parsedMembers = parseData()
-
   const mut = useMutation({
-    mutationFn: async () => addRosterMembers(cycleId, parsedMembers),
+    mutationFn: async (members: RosterEntry[]) => addRosterMembers(cycleId, members),
     onSuccess: () => {
-      toast.success(`${parsedMembers.length} membros importados!`)
+      toast.success(`Membro adicionado com sucesso!`)
       queryClient.invalidateQueries({ queryKey: ['roster', cycleId] })
       setOpen(false)
-      setPastedData('')
+      setNome('')
+      setEmail('')
+      setCargo('assessor')
+      setAreaId('')
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Erro ao importar membros.')
+      toast.error(err.message || 'Erro ao adicionar membro.')
     },
   })
 
@@ -318,43 +305,58 @@ function RosterManager({ cycleId }: { cycleId: string }) {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Upload className="mr-2 size-4" /> Importar lista
+              <Users className="mr-2 size-4" /> Adicionar Membro
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>Importar em lote (Excel)</DialogTitle>
+              <DialogTitle>Adicionar Membro</DialogTitle>
               <DialogDescription>
-                Copie e cole os dados da sua planilha. As colunas DEVEM estar na ordem:
-                <br />
-                <strong className="text-foreground">Email | Nome | Cargo | Diretoria | Área</strong>
+                Insira os dados do membro para permitir o acesso dele no ciclo vigente.
               </DialogDescription>
             </DialogHeader>
-            <div className="mt-2 flex flex-col gap-4">
-              <Textarea
-                placeholder="nome@bevilaqua.org.br&#9;Nome Sobrenome&#9;Assessor&#9;Negócios&#9;Comercial"
-                className="font-mono min-h-[200px] text-xs whitespace-pre"
-                value={pastedData}
-                onChange={(e) => setPastedData(e.target.value)}
-              />
-              
-              {parsedMembers.length > 0 && (
-                <div className="bg-muted/50 max-h-48 overflow-y-auto rounded-md p-2">
-                  <p className="mb-2 text-xs font-semibold">{parsedMembers.length} encontrados válidos:</p>
-                  {parsedMembers.slice(0, 5).map((m, i) => (
-                    <div key={i} className="text-xs">{m.email} - {ROLE_LABELS[m.role as RoleType]}</div>
-                  ))}
-                  {parsedMembers.length > 5 && <div className="text-muted-foreground text-xs mt-1">...e mais {parsedMembers.length - 5}</div>}
+            <form onSubmit={handleAdd} className="mt-2 flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <Label>Nome Completo</Label>
+                <Input required value={nome} onChange={(e) => setNome(e.target.value)} placeholder="João Silva" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>E-mail (Bevilaqua)</Label>
+                <Input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="joao@bevilaqua.org.br" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label>Cargo</Label>
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    value={cargo}
+                    onChange={(e) => setCargo(e.target.value as RoleType)}
+                    required
+                  >
+                    {Object.entries(ROLE_LABELS).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
                 </div>
-              )}
-
-              <Button
-                disabled={parsedMembers.length === 0 || mut.isPending}
-                onClick={() => mut.mutate()}
-              >
-                {mut.isPending ? 'Importando...' : `Confirmar inserção de ${parsedMembers.length} pessoas`}
+                <div className="flex flex-col gap-2">
+                  <Label>Área/Subárea</Label>
+                  <select
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    value={areaId}
+                    onChange={(e) => setAreaId(e.target.value)}
+                    required
+                  >
+                    <option value="" disabled>Selecione...</option>
+                    {areasQ.data?.map((a) => (
+                      <option key={a.id} value={a.id}>{a.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <Button type="submit" disabled={mut.isPending} className="mt-2">
+                {mut.isPending ? 'Adicionando...' : 'Confirmar'}
               </Button>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </CardHeader>

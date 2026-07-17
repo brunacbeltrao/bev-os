@@ -29,6 +29,7 @@ function CadastroPage() {
   const [etapa, setEtapa] = useState<Etapa>('email')
   const [email, setEmail] = useState('')
   const [roster, setRoster] = useState<RosterCheck | null>(null)
+  const [nomeExibicao, setNomeExibicao] = useState('')
   const [senha, setSenha] = useState('')
   const [senha2, setSenha2] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -48,6 +49,7 @@ function CadastroPage() {
         setErro('Este e-mail já foi usado para criar uma conta. Se for você, use a tela de login.')
       } else {
         setRoster(check)
+        setNomeExibicao(check.nome?.split(' ')[0] || '')
         setEtapa('senha')
       }
     } catch {
@@ -68,10 +70,19 @@ function CadastroPage() {
       setErro('As senhas não conferem.')
       return
     }
+    if (!nomeExibicao.trim()) {
+      setErro('O nome de exibição é obrigatório.')
+      return
+    }
     setCarregando(true)
     const { data, error } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password: senha,
+      options: {
+        data: {
+          nome: nomeExibicao.trim(),
+        },
+      },
     })
     setCarregando(false)
     if (error) {
@@ -134,20 +145,28 @@ function CadastroPage() {
 
           {etapa === 'senha' && roster && (
             <form onSubmit={criarConta} className="flex flex-col gap-4">
-              <div className="bg-muted flex flex-col gap-1.5 rounded-md p-3 text-sm">
-                <span className="font-medium">{roster.nome}</span>
-                <div className="flex flex-wrap gap-1.5">
-                  <Badge variant="secondary">{roster.cargo ? ROLE_LABELS[roster.cargo] : ''}</Badge>
-                  {roster.cargo !== 'diretor' && <Badge variant="secondary">{roster.area}</Badge>}
-                  <Badge variant="outline">{roster.diretoria}</Badge>
-                </div>
-                <span className="text-muted-foreground text-xs">
-                  Cargo e área vêm da lista da P&C — se algo estiver errado, fale com eles antes de
-                  continuar.
-                </span>
+              <div>
+                <h3 className="mb-1 text-sm font-semibold">Tudo certo, {roster?.nome?.split(' ')[0]}!</h3>
+                <p className="text-muted-foreground text-sm">
+                  Encontramos seu cadastro como <Badge variant="secondary" className="mx-1">{ROLE_LABELS[roster?.cargo as keyof typeof ROLE_LABELS]}</Badge> 
+                  em <span className="font-medium text-foreground">{roster?.area}</span>.
+                </p>
               </div>
+              
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="senha">Senha</Label>
+                <Label htmlFor="nomeExibicao">Como você quer ser chamado?</Label>
+                <Input
+                  id="nomeExibicao"
+                  value={nomeExibicao}
+                  onChange={(e) => setNomeExibicao(e.target.value)}
+                  placeholder="Nome de exibição (ex: Bru, Gui)"
+                  required
+                />
+                <p className="text-muted-foreground text-xs">Este nome aparecerá na plataforma.</p>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="senha">Crie uma senha</Label>
                 <Input
                   id="senha"
                   type="password"
