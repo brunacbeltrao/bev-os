@@ -1,0 +1,351 @@
+/**
+ * Home (Blueprint §4): tela única que mistura Inbox pessoal
+ * (esquerda, adaptada por papel) e Painel institucional (direita,
+ * igual para todos). Com a Onda 1, a Inbox passa a ter dados reais:
+ * demandas, aprovações pendentes e próximas reuniões.
+ */
+import { useState } from 'react'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  CalendarClock,
+  CalendarDays,
+  Check,
+  Inbox,
+  Megaphone,
+  TrendingUp,
+  UserPlus,
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useApp } from '@/lib/app-context'
+import { createJustification } from '@/lib/frequencia'
+import {
+  eventDisplayName,
+  getMyPendingConfirmations,
+  getUpcomingEvents,
+  setRsvp,
+  MEETING_BADGE,
+  MEETING_CHIP,
+  type AgendaEvent,
+} from '@/lib/agenda'
+import { getAnnouncements } from '@/lib/comunicados'
+import { getOrgStats, getRecentPeople, ROLE_LABELS } from '@/lib/org'
+import { fmtDate } from '@/lib/use-context-scope'
+import { firstName } from '@/lib/utils'
+
+export const Route = createFileRoute('/_app/')({ component: HomePage })
+
+function saudacao(): string {
+  const h = new Date().getHours()
+  if (h < 6) return 'Boa madrugada'
+  if (h < 12) return 'Bom dia'
+  if (h < 18) return 'Boa tarde'
+  return 'Boa noite'
+}
+
+function EmptyItem({ icon: Icon, texto }: { icon: typeof Inbox; texto: string }) {
+  return (
+    <div className="text-muted-foreground flex items-start gap-2.5 rounded-md border border-dashed p-3 text-sm">
+      <Icon className="mt-0.5 size-4 shrink-0" />
+      <span>{texto}</span>
+    </div>
+  )
+}
+
+function ConfirmItem({
+  event,
+  personId,
+  onDone,
+}: {
+  event: AgendaEvent
+  personId: string
+  onDone: () => void
+}) {
+  const [recusando, setRecusando] = useState(false)
+  const [motivo, setMotivo] = useState('')
+  const confirmMut = useMutation({
+    mutationFn: () => setRsvp(event.id, personId, 'confirmado'),
+    onSuccess: onDone,
+  })
+  const recusaMut = useMutation({
+    mutationFn: async () => {
+      await setRsvp(event.id, personId, 'recusado')
+      await createJustification(personId, event.id, motivo)
+    },
+    onSuccess: onDone,
+  })
+  return (
+    <div className="rounded-md border p-2.5">
+      <div className="flex items-center gap-2">
+        <Badge variant={MEETING_BADGE[event.meeting_type.slug]}>
+          {MEETING_CHIP[event.meeting_type.slug]}
+        </Badge>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{eventDisplayName(event)}</p>
+          <p className="text-muted-foreground text-xs">{fmtDate(event.data, true)}</p>
+        </div>
+        <Badge variant="warning">Obrigatória</Badge>
+      </div>
+      {recusando ? (
+        <div className="mt-2 flex flex-col gap-2">
+          <Input placeholder="Motivo da ausência…" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+          <div className="flex gap-2">
+            <Button size="sm" disabled={!motivo.trim() || recusaMut.isPending} onClick={() => recusaMut.mutate()}>
+              Enviar justificativa
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setRecusando(false)}>
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <Button size="sm" disabled={confirmMut.isPending} onClick={() => confirmMut.mutate()}>
+            <Check className="size-4" /> Confirmar
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setRecusando(true)}>
+            Não poderei
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function InboxPessoal() {
+  const { person, primary } = useApp()
+  const queryClient = useQueryClient()
+  const confirmQ = useQuery({
+    queryKey: ['pending-confirmations', person.id],
+    queryFn: () => getMyPendingConfirmations(person.id, primary.role),
+  })
+  const upcomingQ = useQuery({ queryKey: ['upcoming-events'], queryFn: () => getUpcomingEvents(6) })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Inbox className="size-4" />
+          Inbox pessoal
+        </CardTitle>
+        <CardDescription>Suas confirmações e próximos compromissos.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {(confirmQ.data ?? []).length > 0 && (
+          <div>
+            <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+              <CalendarClock className="size-4" /> Confirme sua presença
+            </h3>
+            <div className="flex flex-col gap-1.5">
+              {confirmQ.data!.map((e) => (
+                <ConfirmItem
+                  key={e.id}
+                  event={e}
+                  personId={person.id}
+                  onDone={() =>
+                    queryClient.invalidateQueries({ queryKey: ['pending-confirmations'] })
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(confirmQ.data ?? []).length === 0 && (
+          <EmptyItem icon={CalendarClock} texto="Nenhuma presença obrigatória pendente de confirmação." />
+        )}
+
+        <div>
+          <h3 className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            <CalendarDays className="size-4" /> Seus próximos compromissos
+          </h3>
+          {upcomingQ.isPending ? (
+            <Skeleton className="h-14 w-full" />
+          ) : (upcomingQ.data ?? []).length === 0 ? (
+            <EmptyItem icon={CalendarDays} texto="Nada agendado por enquanto." />
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {(upcomingQ.data ?? []).map((e) => (
+                <Link
+                  key={e.id}
+                  to="/agenda"
+                  className="hover:bg-accent flex items-center gap-2 rounded-md border p-2.5 text-sm transition-colors"
+                >
+                  <Badge variant={MEETING_BADGE[e.meeting_type.slug]}>
+                    {MEETING_CHIP[e.meeting_type.slug]}
+                  </Badge>
+                  <span className="min-w-0 flex-1 truncate">{eventDisplayName(e)}</span>
+                  <span className="text-muted-foreground shrink-0 text-xs">{fmtDate(e.data, true)}</span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function PainelInstitucional() {
+  const { cycle } = useApp()
+
+  const statsQ = useQuery({
+    queryKey: ['org-stats', cycle.id],
+    queryFn: () => getOrgStats(cycle.id),
+  })
+  const eventsQ = useQuery({
+    queryKey: ['upcoming-events'],
+    queryFn: () => getUpcomingEvents(5),
+  })
+  const announcementsQ = useQuery({
+    queryKey: ['announcements', cycle.id, ''],
+    queryFn: () => getAnnouncements(cycle.id),
+  })
+  const recentQ = useQuery({ queryKey: ['recent-people'], queryFn: () => getRecentPeople(4) })
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="size-4" />
+            Indicadores gerais BEV
+          </CardTitle>
+          <CardDescription>Ciclo {cycle.nome}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {statsQ.isPending ? (
+            <Skeleton className="h-24 w-full" />
+          ) : statsQ.isError ? (
+            <p className="text-muted-foreground text-sm">Não foi possível carregar.</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div>
+                <span className="text-3xl font-semibold">{statsQ.data.totalMembros}</span>
+                <span className="text-muted-foreground ml-2 text-sm">
+                  {statsQ.data.totalMembros === 1 ? 'membro ativo' : 'membros ativos'}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {statsQ.data.porDiretoria.map((d) => (
+                  <div key={d.diretoria} className="flex items-center justify-between text-sm">
+                    <span>{d.diretoria}</span>
+                    <Badge variant="secondary">{d.total}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarDays className="size-4" />
+            Próximos eventos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {eventsQ.isPending ? (
+            <Skeleton className="h-16 w-full" />
+          ) : (eventsQ.data ?? []).length === 0 ? (
+            <p className="text-muted-foreground text-sm">
+              Nada agendado. Agende pelo{' '}
+              <Link to="/agenda" className="text-primary hover:underline">
+                Calendário
+              </Link>
+              .
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {eventsQ.data!.map((e) => (
+                <Link
+                  key={e.id}
+                  to="/agenda"
+                  className="hover:bg-accent flex items-center gap-2 rounded-md border p-2.5 text-sm transition-colors"
+                >
+                  <Badge variant={MEETING_BADGE[e.meeting_type.slug]}>
+                    {MEETING_CHIP[e.meeting_type.slug]}
+                  </Badge>
+                  <span className="min-w-0 flex-1 truncate">
+                    {e.titulo?.trim() || (e.subarea ? `${eventDisplayName(e)} · ${e.subarea.nome}` : eventDisplayName(e))}
+                  </span>
+                  <span className="text-muted-foreground shrink-0 text-xs">
+                    {fmtDate(e.data, true)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Megaphone className="size-4" />
+            Atividade recente
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-1.5">
+          {(announcementsQ.data ?? []).slice(0, 3).map((a) => (
+            <Link
+              key={a.id}
+              to="/comunicados"
+              className="hover:bg-accent flex items-center gap-2 rounded-md border p-2.5 text-sm transition-colors"
+            >
+              <Megaphone className="text-muted-foreground size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">{a.titulo}</span>
+              <span className="text-muted-foreground shrink-0 text-xs">{fmtDate(a.created_at)}</span>
+            </Link>
+          ))}
+          {(recentQ.data ?? []).map((p) => (
+            <div key={p.id} className="flex items-center gap-2 rounded-md border p-2.5 text-sm">
+              <UserPlus className="text-muted-foreground size-3.5 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">
+                <strong className="font-medium">{p.nome}</strong> entrou no BEV OS
+              </span>
+              <span className="text-muted-foreground shrink-0 text-xs">{fmtDate(p.created_at)}</span>
+            </div>
+          ))}
+          {(announcementsQ.data ?? []).length === 0 && (recentQ.data ?? []).length === 0 && (
+            <p className="text-muted-foreground text-sm">Nenhuma atividade ainda.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function HomePage() {
+  const { person, primary, cycle, context } = useApp()
+
+  const hoje = new Date().toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+
+  return (
+    <div className="mx-auto max-w-6xl">
+      <header className="mb-6">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {saudacao()}, {firstName(person.nome)}
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm first-letter:capitalize">
+          {hoje} · {ROLE_LABELS[primary.role]} · {context.label} · Ciclo {cycle.nome}
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <InboxPessoal />
+        <PainelInstitucional />
+      </div>
+    </div>
+  )
+}

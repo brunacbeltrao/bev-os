@@ -1,0 +1,157 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Tokens de tema — claro/escuro via variáveis CSS (Blueprint §9).
+  Nenhum componente usa cor fixa: tudo referencia estes tokens.
+*/
+/* Cores institucionais do Bevilaqua:
+   verde #a9cf44 · grafite #212021 · cinza-claro #f3f3f3 */
+:root {
+  --background: #f3f3f3;
+  --foreground: #212021;
+  --card: #ffffff;
+  --card-foreground: #212021;
+  --popover: #ffffff;
+  --popover-foreground: #212021;
+  --primary: #a9cf44;
+  --primary-foreground: #212021;
+  --secondary: #e7e7e5;
+  --secondary-foreground: #212021;
+  --muted: #ebebe9;
+  --muted-foreground: #6b6b68;
+  --accent: #eaf3d2;
+  --accent-foreground: #3d4a17;
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: #f3f3f3;
+  --border: #dededc;
+  --input: #d6d6d4;
+  --ring: #a9cf44;
+  --sidebar: #ececea;
+  --sidebar-foreground: #212021;
+  --sidebar-accent: #dcebb4;
+  --sidebar-accent-foreground: #2f3a10;
+  --sidebar-border: #dededc;
+  --topbar: #ffffff;
+
+  /* Paleta de badges de status (Blueprint §8) */
+  --status-neutral: oklch(0.6 0.01 260); /* cinza — não iniciado */
+  --status-neutral-bg: oklch(0.94 0.005 260);
+  --status-info: oklch(0.55 0.15 250); /* azul — em andamento */
+  --status-info-bg: oklch(0.94 0.03 250);
+  --status-warning: oklch(0.6 0.13 85); /* amarelo — aguardando revisão/aprovação */
+  --status-warning-bg: oklch(0.96 0.06 95);
+  --status-success: oklch(0.55 0.13 150); /* verde — concluído */
+  --status-success-bg: oklch(0.95 0.04 150);
+  --status-danger: oklch(0.55 0.2 25); /* vermelho — atrasado/rejeitado */
+  --status-danger-bg: oklch(0.95 0.03 25);
+
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #212021;
+  --foreground: #f3f3f3;
+  --card: #2b2a2b;
+  --card-foreground: #f3f3f3;
+  --popover: #2b2a2b;
+  --popover-foreground: #f3f3f3;
+  --primary: #a9cf44;
+  --primary-foreground: #212021;
+  --secondary: #383738;
+  --secondary-foreground: #f3f3f3;
+  --muted: #343334;
+  --muted-foreground: #a3a3a0;
+  --accent: #3c421f;
+  --accent-foreground: #d3e79a;
+  --destructive: oklch(0.65 0.18 25);
+  --destructive-foreground: #212021;
+  --border: #3c3b3c;
+  --input: #454445;
+  --ring: #a9cf44;
+  --sidebar: #262526;
+  --sidebar-foreground: #e2e2e0;
+  --sidebar-accent: #3c421f;
+  --sidebar-accent-foreground: #d3e79a;
+  --sidebar-border: #343334;
+  --topbar: #262526;
+
+  --status-neutral: oklch(0.7 0.01 260);
+  --status-neutral-bg: oklch(0.3 0.01 260);
+  --status-info: oklch(0.7 0.12 250);
+  --status-info-bg: oklch(0.28 0.05 250);
+  --status-warning: oklch(0.78 0.13 90);
+  --status-warning-bg: oklch(0.3 0.05 95);
+  --status-success: oklch(0.72 0.13 150);
+  --status-success-bg: oklch(0.27 0.05 150);
+  --status-danger: oklch(0.68 0.18 25);
+  --status-danger-bg: oklch(0.3 0.06 25);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-topbar: var(--topbar);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-info: var(--status-info);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-success: var(--status-success);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-danger: var(--status-danger);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+* {
+  box-sizing: border-box;
+  border-color: var(--color-border);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    sans-serif;
+}

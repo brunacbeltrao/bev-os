@@ -1,0 +1,449 @@
+/**
+ * Comercial (Onda 2) — Padrão Kanban (Blueprint §6): colunas =
+ * etapas do funil, card = lead, mudança de etapa via menu no card.
+ * Fechar exige valor + serviços (gera Projeto automaticamente);
+ * perder exige motivo — regras aplicadas também no banco.
+ */
+import { useMemo, useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronDown, Handshake, Lock, Plus } from 'lucide-react'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { useApp } from '@/lib/app-context'
+import {
+  createLead,
+  fmtValor,
+  getLeads,
+  leadErrorMessage,
+  updateLead,
+  ETAPAS_ORDEM,
+  ETAPA_LABELS,
+  SEGMENTO_LABELS,
+  type Lead,
+  type LeadEtapa,
+  type LeadSegmento,
+} from '@/lib/comercial'
+import { getDirectory } from '@/lib/org'
+import { useContextScope } from '@/lib/use-context-scope'
+import { initials } from '@/lib/utils'
+
+export const Route = createFileRoute('/_app/comercial')({ component: ComercialPage })
+
+const ETAPA_BADGE: Record<LeadEtapa, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
+  qualificacao: 'neutral',
+  prospeccao: 'info',
+  reuniao: 'info',
+  proposta: 'warning',
+  negociacao: 'warning',
+  fechado: 'success',
+  perdido: 'danger',
+}
+
+function useComercialSubarea() {
+  const { allSubareas } = useContextScope()
+  return allSubareas.find((s) => s.slug === 'comercial') ?? null
+}
+
+function NovoLeadDialog() {
+  const { person, cycle } = useApp()
+  const comercial = useComercialSubarea()
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [nome, setNome] = useState('')
+  const [segmento, setSegmento] = useState<LeadSegmento>('pme')
+  const [assessorId, setAssessorId] = useState('')
+
+  const membersQ = useQuery({
+    queryKey: ['directory', cycle.id, comercial?.id],
+    queryFn: () => getDirectory(cycle.id, comercial!.id),
+    enabled: open && !!comercial,
+  })
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      createLead({
+        nome_cliente: nome,
+        segmento,
+        assessor_responsavel_id: assessorId || person.id,
+        criado_por: person.id,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      setOpen(false)
+      setNome('')
+      setSegmento('pme')
+      setAssessorId('')
+    },
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <Plus className="size-4" />
+        Novo lead
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Novo lead</DialogTitle>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (nome.trim()) createMut.mutate()
+          }}
+        >
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="l-nome">Nome do cliente</Label>
+            <Input id="l-nome" required value={nome} onChange={(e) => setNome(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="l-seg">Segmento</Label>
+              <select
+                id="l-seg"
+                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                value={segmento}
+                onChange={(e) => setSegmento(e.target.value as LeadSegmento)}
+              >
+                {(Object.keys(SEGMENTO_LABELS) as LeadSegmento[]).map((s) => (
+                  <option key={s} value={s}>
+                    {SEGMENTO_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="l-resp">Assessor responsável</Label>
+              <select
+                id="l-resp"
+                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                value={assessorId || person.id}
+                onChange={(e) => setAssessorId(e.target.value)}
+              >
+                {(membersQ.data ?? []).map(({ person: p }) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+                {(membersQ.data ?? []).length === 0 && (
+                  <option value={person.id}>{person.nome}</option>
+                )}
+              </select>
+            </div>
+          </div>
+          <Button type="submit" disabled={createMut.isPending}>
+            {createMut.isPending ? 'Criando…' : 'Criar lead'}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Diálogo de transição para Fechado (valor + serviços) ou Perdido (motivo). */
+function TransicaoDialog({
+  lead,
+  destino,
+  onClose,
+}: {
+  lead: Lead
+  destino: 'fechado' | 'perdido'
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [valor, setValor] = useState('')
+  const [servicos, setServicos] = useState('')
+  const [motivo, setMotivo] = useState('')
+  const [erro, setErro] = useState<string | null>(null)
+
+  const mut = useMutation({
+    mutationFn: () =>
+      updateLead(
+        lead.id,
+        destino === 'fechado'
+          ? {
+              etapa_atual: 'fechado',
+              valor_fechado: parseFloat(valor.replace(',', '.')),
+              servicos_vendidos: servicos
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean),
+            }
+          : { etapa_atual: 'perdido', motivo_perda: motivo },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      onClose()
+    },
+    onError: (e) => setErro(leadErrorMessage(e)),
+  })
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>
+            {destino === 'fechado' ? 'Fechar contrato' : 'Marcar como perdido'} · {lead.nome_cliente}
+          </DialogTitle>
+          <DialogDescription>
+            {destino === 'fechado'
+              ? 'Ao fechar, o Projeto é criado automaticamente e vai para a fila de alocação de núcleo.'
+              : 'Registre o motivo — ele fica no histórico do funil.'}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            mut.mutate()
+          }}
+        >
+          {destino === 'fechado' ? (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="t-valor">Valor fechado (R$)</Label>
+                <Input
+                  id="t-valor"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="t-serv">Serviços vendidos (separados por vírgula)</Label>
+                <Input
+                  id="t-serv"
+                  required
+                  placeholder="ex: Plano de negócios, Pesquisa de mercado"
+                  value={servicos}
+                  onChange={(e) => setServicos(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="t-motivo">Motivo da perda</Label>
+              <Textarea
+                id="t-motivo"
+                required
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+            </div>
+          )}
+          {erro && <p className="text-destructive text-sm">{erro}</p>}
+          <Button type="submit" disabled={mut.isPending}>
+            {mut.isPending ? 'Salvando…' : destino === 'fechado' ? 'Fechar contrato' : 'Confirmar perda'}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function LeadCard({
+  lead,
+  onTransicao,
+}: {
+  lead: Lead
+  onTransicao: (destino: 'fechado' | 'perdido') => void
+}) {
+  const queryClient = useQueryClient()
+  const moveMut = useMutation({
+    mutationFn: (etapa: LeadEtapa) => updateLead(lead.id, { etapa_atual: etapa }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+
+  return (
+    <div className="bg-card rounded-lg border p-2.5 shadow-sm">
+      <div className="mb-1.5 flex items-center gap-1.5">
+        <Badge variant="secondary" className="px-1.5 text-[10px]">
+          {SEGMENTO_LABELS[lead.segmento]}
+        </Badge>
+        {lead.valor_fechado !== null && (
+          <span className="text-status-success ml-auto text-xs font-semibold">
+            {fmtValor(lead.valor_fechado)}
+          </span>
+        )}
+      </div>
+      <p className="text-sm font-medium leading-snug">{lead.nome_cliente}</p>
+      <div className="mt-2 flex items-center gap-1.5">
+        <Avatar className="size-5">
+          {lead.assessor.foto_url && (
+            <AvatarImage src={lead.assessor.foto_url} alt={lead.assessor.nome} />
+          )}
+          <AvatarFallback className="text-[9px]">{initials(lead.assessor.nome)}</AvatarFallback>
+        </Avatar>
+        <span className="text-muted-foreground truncate text-xs">
+          {lead.assessor.nome.split(' ')[0]}
+        </span>
+        {lead.etapa_atual !== 'fechado' && lead.etapa_atual !== 'perdido' && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="ml-auto h-6 px-1.5 text-[11px]">
+                Mover
+                <ChevronDown className="size-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Mover para</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {ETAPAS_ORDEM.filter(
+                (e) => e !== lead.etapa_atual && e !== 'fechado' && e !== 'perdido',
+              ).map((e) => (
+                <DropdownMenuItem key={e} onSelect={() => moveMut.mutate(e)}>
+                  {ETAPA_LABELS[e]}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onTransicao('fechado')}>
+                <span className="text-status-success font-medium">Fechado ✓</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onTransicao('perdido')}>
+                <span className="text-status-danger font-medium">Perdido ✗</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      {lead.etapa_atual === 'perdido' && lead.motivo_perda && (
+        <p className="text-muted-foreground mt-1.5 line-clamp-2 text-[11px] italic">
+          {lead.motivo_perda}
+        </p>
+      )}
+      {lead.etapa_atual === 'fechado' && (
+        <p className="text-status-success mt-1.5 text-[11px]">
+          → Projeto criado{lead.servicos_vendidos?.length ? ` · ${lead.servicos_vendidos.join(', ')}` : ''}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ComercialPage() {
+  const { cycle, occupations, isDirex } = useApp()
+  const [transicao, setTransicao] = useState<{ lead: Lead; destino: 'fechado' | 'perdido' } | null>(
+    null,
+  )
+
+  const acessa =
+    isDirex ||
+    occupations.some((o) => o.subarea.slug === 'comercial') ||
+    occupations.some((o) => o.role !== 'assessor' && o.directorate.slug === 'negocios')
+
+  const leadsQ = useQuery({
+    queryKey: ['leads', cycle.id],
+    queryFn: () => getLeads(cycle.id),
+    enabled: acessa,
+  })
+
+  const porEtapa = useMemo(() => {
+    const map = new Map<LeadEtapa, Lead[]>()
+    for (const e of ETAPAS_ORDEM) map.set(e, [])
+    for (const l of leadsQ.data ?? []) map.get(l.etapa_atual)?.push(l)
+    return map
+  }, [leadsQ.data])
+
+  if (!acessa) {
+    return (
+      <div className="mx-auto max-w-lg pt-16 text-center">
+        <Lock className="text-muted-foreground mx-auto mb-3 size-8" />
+        <h1 className="text-lg font-semibold">Acesso restrito</h1>
+        <p className="text-muted-foreground mt-2 text-sm">
+          O funil Comercial é visível para a área Comercial, liderança de Negócios e Direx.
+        </p>
+      </div>
+    )
+  }
+
+  const totalFechado = (porEtapa.get('fechado') ?? []).reduce(
+    (acc, l) => acc + (l.valor_fechado ?? 0),
+    0,
+  )
+
+  return (
+    <div className="mx-auto max-w-full">
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            <Handshake className="size-6" />
+            Comercial
+          </h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Funil de leads · Ciclo {cycle.nome} ·{' '}
+            <span className="text-status-success font-medium">{fmtValor(totalFechado)}</span> fechado
+          </p>
+        </div>
+        <NovoLeadDialog />
+      </header>
+
+      {leadsQ.isPending ? (
+        <div className="flex gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-64 w-52 shrink-0" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-3 overflow-x-auto pb-3">
+          {ETAPAS_ORDEM.map((etapa) => {
+            const list = porEtapa.get(etapa) ?? []
+            return (
+              <div key={etapa} className="bg-muted/50 w-56 shrink-0 rounded-xl border p-2">
+                <div className="mb-2 flex items-center gap-1.5 px-1">
+                  <Badge variant={ETAPA_BADGE[etapa]}>{ETAPA_LABELS[etapa]}</Badge>
+                  <span className="text-muted-foreground ml-auto text-xs">{list.length}</span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {list.map((lead) => (
+                    <LeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onTransicao={(destino) => setTransicao({ lead, destino })}
+                    />
+                  ))}
+                  {list.length === 0 && (
+                    <p className="text-muted-foreground p-2 text-center text-[11px]">vazio</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {transicao && (
+        <TransicaoDialog
+          lead={transicao.lead}
+          destino={transicao.destino}
+          onClose={() => setTransicao(null)}
+        />
+      )}
+    </div>
+  )
+}

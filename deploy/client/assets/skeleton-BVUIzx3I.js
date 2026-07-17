@@ -1,0 +1,1 @@
+import{j as m}from"./index-D3h4clgK.js";import{c as o}from"./supabase-DJrrcR6f.js";function n({className:e,...t}){return m.jsx("div",{className:o("bg-muted animate-pulse rounded-md",e),...t})}export{n as S};

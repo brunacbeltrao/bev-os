@@ -1,0 +1,230 @@
+/** Financeiro (Onda 4) — caixa único institucional. Todos veem saldo,
+ *  entradas e saídas; Gestão + Direx lançam. */
+import { useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowDownRight, ArrowUpRight, Plus, Trash2, Wallet } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useApp } from '@/lib/app-context'
+import { useAllSubareas, fmtDate } from '@/lib/use-context-scope'
+import {
+  createFinanceEntry,
+  deleteFinanceEntry,
+  fmtBRL,
+  getFinanceEntries,
+  summarize,
+  type FinanceTipo,
+} from '@/lib/financeiro'
+
+export const Route = createFileRoute('/_app/financeiro')({ component: FinanceiroPage })
+
+function FinanceiroPage() {
+  const { person, cycle, occupations } = useApp()
+  const queryClient = useQueryClient()
+  const subareasQ = useAllSubareas()
+  // Só a área de Gestão edita o caixa (assessor/gerente/diretor de Gestão).
+  const canManage = occupations.some((o) => o.subarea.slug === 'gestao')
+
+  const q = useQuery({ queryKey: ['finance', cycle.id], queryFn: () => getFinanceEntries(cycle.id) })
+  const entries = q.data ?? []
+  const sum = summarize(entries)
+
+  const [form, setForm] = useState({
+    tipo: 'entrada' as FinanceTipo,
+    valor: '',
+    descricao: '',
+    data: new Date().toISOString().slice(0, 10),
+    subarea_id: '',
+  })
+  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['finance'] })
+  const addMut = useMutation({
+    mutationFn: () =>
+      createFinanceEntry({
+        tipo: form.tipo,
+        valor: Number(form.valor.replace(',', '.')),
+        descricao: form.descricao,
+        data: form.data,
+        subarea_id: form.subarea_id || null,
+        aprovado_por: person.id,
+      }),
+    onSuccess: () => {
+      setForm((f) => ({ ...f, valor: '', descricao: '' }))
+      invalidate()
+    },
+  })
+  const delMut = useMutation({
+    mutationFn: (id: string) => deleteFinanceEntry(id),
+    onSuccess: invalidate,
+  })
+
+  return (
+    <div className="mx-auto max-w-4xl">
+      <header className="mb-5">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+          <Wallet className="size-6" />
+          Financeiro
+        </h1>
+        <p className="text-muted-foreground mt-1 text-sm">
+          Caixa único da EJ · Ciclo {cycle.nome} · atualização semanal
+        </p>
+      </header>
+
+      {/* Saldo */}
+      <Card className="mb-5">
+        <CardContent className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-3">
+          <div>
+            <p className="text-muted-foreground text-xs">Saldo atual do caixa</p>
+            <p className={`text-3xl font-semibold ${sum.saldo < 0 ? 'text-red-600' : ''}`}>
+              {q.isPending ? '—' : fmtBRL(sum.saldo)}
+            </p>
+          </div>
+          <div className="flex flex-col justify-center">
+            <p className="text-emerald-600 flex items-center gap-1 text-xs">
+              <ArrowUpRight className="size-3.5" /> Entradas
+            </p>
+            <p className="text-lg font-medium">{fmtBRL(sum.entradas)}</p>
+          </div>
+          <div className="flex flex-col justify-center">
+            <p className="flex items-center gap-1 text-xs text-red-600">
+              <ArrowDownRight className="size-3.5" /> Saídas
+            </p>
+            <p className="text-lg font-medium">{fmtBRL(sum.saidas)}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lançar (Gestão + Direx) */}
+      {canManage && (
+        <Card className="mb-5">
+          <CardContent className="p-4">
+            <form
+              className="flex flex-col gap-3"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (form.descricao.trim() && Number(form.valor.replace(',', '.')) > 0) addMut.mutate()
+              }}
+            >
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Tipo</Label>
+                  <div className="flex gap-1.5">
+                    {(['entrada', 'saida'] as FinanceTipo[]).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => set('tipo', t)}
+                        className={`rounded-md border px-3 py-1.5 text-sm ${form.tipo === t ? 'bg-accent border-ring' : 'bg-card'}`}
+                      >
+                        {t === 'entrada' ? 'Entrada' : 'Saída'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Valor (R$)</Label>
+                  <Input
+                    value={form.valor}
+                    onChange={(e) => set('valor', e.target.value)}
+                    placeholder="0,00"
+                    inputMode="decimal"
+                    className="w-32"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Data</Label>
+                  <Input type="date" value={form.data} onChange={(e) => set('data', e.target.value)} className="w-40" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Área (opcional)</Label>
+                  <select
+                    value={form.subarea_id}
+                    onChange={(e) => set('subarea_id', e.target.value)}
+                    className="border-input bg-card h-9 rounded-md border px-2 text-sm"
+                  >
+                    <option value="">Geral</option>
+                    {(subareasQ.data ?? []).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-end gap-2">
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={form.descricao}
+                    onChange={(e) => set('descricao', e.target.value)}
+                    placeholder="Ex.: Mensalidade projeto X / Pagamento fornecedor Y"
+                  />
+                </div>
+                <Button type="submit" disabled={addMut.isPending}>
+                  <Plus className="size-4" /> Lançar
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lançamentos */}
+      <h2 className="mb-2 text-sm font-semibold">Lançamentos</h2>
+      {q.isPending ? (
+        <Skeleton className="h-40 w-full" />
+      ) : entries.length === 0 ? (
+        <Card>
+          <CardContent className="text-muted-foreground p-8 text-center text-sm">
+            Nenhum lançamento neste ciclo ainda.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {entries.map((e) => (
+            <div key={e.id} className="bg-card flex items-center gap-3 rounded-lg border p-3">
+              <div
+                className={`flex size-8 items-center justify-center rounded-full ${e.tipo === 'entrada' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+              >
+                {e.tipo === 'entrada' ? (
+                  <ArrowUpRight className="size-4" />
+                ) : (
+                  <ArrowDownRight className="size-4" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{e.descricao}</p>
+                <p className="text-muted-foreground text-xs">
+                  {fmtDate(e.data)}
+                  {e.subarea?.nome && ` · ${e.subarea.nome}`}
+                </p>
+              </div>
+              <span
+                className={`text-sm font-semibold ${e.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-600'}`}
+              >
+                {e.tipo === 'entrada' ? '+' : '−'} {fmtBRL(e.valor)}
+              </span>
+              {canManage && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    if (confirm('Excluir este lançamento?')) delMut.mutate(e.id)
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
