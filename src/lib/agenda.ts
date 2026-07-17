@@ -5,6 +5,7 @@
  * Quem vê o quê é resolvido pelo RLS lendo occupations.
  */
 import { supabase } from './supabase'
+import { z } from 'zod'
 
 export type MeetingSlug =
   | 'rg'
@@ -133,14 +134,40 @@ export async function getMeetingTypes(): Promise<MeetingType[]> {
 const EVENT_SELECT =
   '*, meeting_type:meeting_types(id, slug, nome), subarea:subareas(id, nome), targets:event_target_directorates(directorate_id), rsvps:event_rsvp(person_id, status)'
 
-function mapEvent(row: Record<string, any>): AgendaEvent {
+const AgendaEventSchema = z.object({
+  id: z.string(),
+  meeting_type_id: z.string(),
+  subarea_id: z.string().nullable(),
+  data: z.string(),
+  titulo: z.string().nullable(),
+  pauta: z.string().nullable(),
+  criado_por: z.string(),
+  cycle_id: z.string(),
+  audiencia: z.enum(['bev', 'diretores', 'diretores_gerentes', 'areas']),
+  link_reuniao: z.string().nullable(),
+  obrig_diretores: z.boolean(),
+  obrig_gerentes: z.boolean(),
+  obrig_assessores: z.boolean(),
+  meeting_type: z.object({
+    id: z.string(),
+    slug: z.string(),
+    nome: z.string()
+  }),
+  subarea: z.object({
+    id: z.string(),
+    nome: z.string()
+  }).nullable(),
+  targets: z.array(z.object({ directorate_id: z.string() })).optional().default([]),
+  rsvps: z.array(z.object({ person_id: z.string(), status: z.enum(['confirmado', 'recusado']) })).optional().default([])
+})
+
+function mapEvent(row: unknown): AgendaEvent {
+  const parsed = AgendaEventSchema.parse(row)
   return {
-    ...(row as any),
-    target_directorate_ids: ((row.targets ?? []) as Array<{ directorate_id: string }>).map(
-      (t) => t.directorate_id,
-    ),
-    rsvps: (row.rsvps ?? []) as AgendaEvent['rsvps'],
-  }
+    ...parsed,
+    target_directorate_ids: parsed.targets.map((t) => t.directorate_id),
+    rsvps: parsed.rsvps,
+  } as AgendaEvent
 }
 
 /** Eventos visíveis (RLS filtra por audiência) num intervalo. */
@@ -152,7 +179,7 @@ export async function getEvents(fromIso: string, toIso: string): Promise<AgendaE
     .lt('data', toIso)
     .order('data', { ascending: true })
   if (error) throw error
-  return (data ?? []).map((r) => mapEvent(r as Record<string, any>))
+  return (data ?? []).map((r) => mapEvent(r))
 }
 
 /** Compromissos futuros obrigatórios para o meu papel e ainda sem RSVP meu. */
@@ -174,7 +201,7 @@ export async function getUpcomingEvents(limit = 8): Promise<AgendaEvent[]> {
     .order('data', { ascending: true })
     .limit(limit)
   if (error) throw error
-  return (data ?? []).map((r) => mapEvent(r as Record<string, any>))
+  return (data ?? []).map((r) => mapEvent(r))
 }
 
 export interface NewEvent {

@@ -24,13 +24,22 @@ export interface NewsPost {
   created_at: string
   autor: Pick<Person, 'id' | 'nome' | 'foto_url'>
   reactions: Array<{ person_id: string }>
+  comments: NewsComment[]
 }
 
-export async function getNewsFeed(cycleId: string): Promise<NewsPost[]> {
+export interface NewsComment {
+  id: string
+  news_post_id: string
+  person_id: string
+  texto: string
+  created_at: string
+  autor: Pick<Person, 'id' | 'nome' | 'foto_url'>
+}
+
+export async function getNewsFeed(): Promise<NewsPost[]> {
   const { data, error } = await supabase
     .from('news_posts')
-    .select('*, autor:people(id, nome, foto_url), reactions:news_reactions(person_id)')
-    .eq('cycle_id', cycleId)
+    .select('*, autor:people(id, nome, foto_url), reactions:news_reactions(person_id), comments:news_comments(*, autor:people(id, nome, foto_url))')
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) throw error
@@ -72,4 +81,13 @@ export async function toggleReaction(
       .insert({ news_post_id: postId, person_id: personId })
     if (error) throw error
   }
+}
+
+export async function addNewsComment(postId: string, personId: string, texto: string): Promise<void> {
+  const { error } = await supabase.from('news_comments').insert({
+    news_post_id: postId,
+    person_id: personId,
+    texto,
+  })
+  if (error) throw error
 }

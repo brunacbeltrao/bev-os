@@ -83,9 +83,18 @@ export function GlobalSearch() {
   return (
     <>
       <Button
+        variant="ghost"
+        size="icon"
+        className="sm:hidden"
+        aria-label="Buscar"
+        onClick={() => setOpen(true)}
+      >
+        <Search className="size-4" />
+      </Button>
+      <Button
         variant="outline"
         size="sm"
-        className="text-muted-foreground w-56 justify-start gap-2 font-normal"
+        className="text-muted-foreground hidden w-56 justify-start gap-2 font-normal sm:inline-flex"
         onClick={() => setOpen(true)}
       >
         <Search className="size-3.5" />

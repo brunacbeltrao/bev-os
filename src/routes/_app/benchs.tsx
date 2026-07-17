@@ -30,7 +30,7 @@ export const Route = createFileRoute('/_app/benchs')({ component: BenchsPage })
 function BenchDetail({ bench }: { bench: Bench }) {
   const queryClient = useQueryClient()
   const [insights, setInsights] = useState(bench.insights ?? '')
-  const [url, setUrl] = useState(bench.gravacao_url ?? '')
+  const [url, setUrl] = useState(bench.meet_url ?? '')
   const saveMut = useMutation({
     mutationFn: () => setBenchInsights(bench.id, insights, url),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['benchs'] }),
@@ -38,8 +38,8 @@ function BenchDetail({ bench }: { bench: Bench }) {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h2 className="text-lg font-semibold">{bench.organizacao_parceira}</h2>
-        <p className="text-muted-foreground text-sm">{fmtDate(bench.data)}</p>
+        <h2 className="text-lg font-semibold">{bench.membro_nome} ({bench.organizacao_parceira})</h2>
+        <p className="text-muted-foreground text-sm">{bench.tema} · {fmtDate(bench.data)}</p>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label>Insights (obrigatório após a execução)</Label>
@@ -51,8 +51,8 @@ function BenchDetail({ bench }: { bench: Bench }) {
         />
       </div>
       <div className="flex flex-col gap-1.5">
-        <Label>Link da gravação (opcional)</Label>
-        <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
+        <Label>Link do Meet / Gravação</Label>
+        <Input type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://meet.google.com/..." />
       </div>
       <Button size="sm" className="self-start" disabled={saveMut.isPending} onClick={() => saveMut.mutate()}>
         Salvar documentação
@@ -68,7 +68,11 @@ function BenchsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [org, setOrg] = useState('')
+  const [nome, setNome] = useState('')
+  const [email, setEmail] = useState('')
+  const [tema, setTema] = useState('')
   const [dataBench, setDataBench] = useState('')
+  const [meetUrl, setMeetUrl] = useState('')
   const [subareaId, setSubareaId] = useState('')
 
   const benchsQ = useQuery({
@@ -80,12 +84,20 @@ function BenchsPage() {
       createBench({
         subarea_id: subareaId || scopeSubareas[0]?.id,
         organizacao_parceira: org,
+        membro_nome: nome,
+        membro_email: email,
+        tema: tema,
         data: dataBench,
+        meet_url: meetUrl,
         criado_por: person.id,
       }),
     onSuccess: () => {
       setOpen(false)
       setOrg('')
+      setNome('')
+      setEmail('')
+      setTema('')
+      setMeetUrl('')
       setDataBench('')
       queryClient.invalidateQueries({ queryKey: ['benchs'] })
     },
@@ -97,8 +109,10 @@ function BenchsPage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Sparkles className="size-6" />
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <Sparkles className="size-4.5" />
+          </span>
             Benchs
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
@@ -120,28 +134,51 @@ function BenchsPage() {
               className="flex flex-col gap-3"
               onSubmit={(e) => {
                 e.preventDefault()
-                if (org.trim() && dataBench) createMut.mutate()
+                if (org.trim() && nome.trim() && dataBench) createMut.mutate()
               }}
             >
-              <div className="flex flex-col gap-1.5">
-                <Label>Organização parceira</Label>
-                <Input required value={org} onChange={(e) => setOrg(e.target.value)} />
-              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Data</Label>
+                  <Label>Nome do Membro</Label>
+                  <Input required value={nome} onChange={(e) => setNome(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>EJ / Empresa</Label>
+                  <Input required value={org} onChange={(e) => setOrg(e.target.value)} />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Email</Label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Tema</Label>
+                  <Input required value={tema} onChange={(e) => setTema(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Data e Hora</Label>
                   <Input
-                    type="date"
+                    type="datetime-local"
                     required
                     value={dataBench}
                     onChange={(e) => setDataBench(e.target.value)}
                   />
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Link do Meet</Label>
+                  <Input type="url" placeholder="https://..." value={meetUrl} onChange={(e) => setMeetUrl(e.target.value)} />
+                </div>
+              </div>
                 {scopeSubareas.length > 1 && (
                   <div className="flex flex-col gap-1.5">
                     <Label>Área</Label>
                     <select
-                      className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                      className="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-9 rounded-md border px-3 text-sm shadow-xs transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2"
                       value={subareaId || scopeSubareas[0]?.id}
                       onChange={(e) => setSubareaId(e.target.value)}
                     >
@@ -153,7 +190,6 @@ function BenchsPage() {
                     </select>
                   </div>
                 )}
-              </div>
               <Button type="submit" disabled={createMut.isPending}>
                 Agendar
               </Button>
@@ -189,7 +225,8 @@ function BenchsPage() {
                     <Badge variant="warning" className="ml-auto">Insights pendentes</Badge>
                   )}
                 </div>
-                <p className="text-sm font-medium">{b.organizacao_parceira}</p>
+                <p className="text-sm font-medium">{b.tema}</p>
+                <p className="text-muted-foreground text-xs mt-0.5">{b.membro_nome} ({b.organizacao_parceira})</p>
               </button>
             ))
           )}

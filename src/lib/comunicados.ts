@@ -25,13 +25,24 @@ export interface Announcement {
   autor: Pick<Person, 'id' | 'nome' | 'foto_url'>
   reads: Array<{ person_id: string }>
   attachments: AnnouncementAttachment[]
+  likes?: { person_id: string }[]
+  comments?: NewsComment[]
+}
+
+export interface NewsComment {
+  id: string
+  news_id: string
+  person_id: string
+  texto: string
+  created_at: string
+  autor: Pick<Person, 'id' | 'nome' | 'foto_url'>
 }
 
 export async function getAnnouncements(cycleId: string, search?: string): Promise<Announcement[]> {
   let query = supabase
     .from('announcements')
     .select(
-      '*, autor:people!announcements_autor_id_fkey(id, nome, foto_url), reads:announcement_reads(person_id), attachments:announcement_attachments(id, nome, url, tipo)',
+      '*, autor:people!announcements_autor_id_fkey(id, nome, foto_url), reads:announcement_reads(person_id), attachments:announcement_attachments(id, nome, url, tipo), likes:news_likes(person_id), comments:news_comments(*, autor:people(id, nome, foto_url))',
     )
     .eq('cycle_id', cycleId)
     .order('created_at', { ascending: false })
@@ -100,5 +111,24 @@ export async function markAsRead(announcementId: string, personId: string): Prom
       { announcement_id: announcementId, person_id: personId },
       { onConflict: 'announcement_id,person_id', ignoreDuplicates: true },
     )
+  if (error) throw error
+}
+
+export async function toggleAnnouncementLike(newsId: string, personId: string, isLiked: boolean): Promise<void> {
+  if (isLiked) {
+    const { error } = await supabase.from('news_likes').delete().eq('news_id', newsId).eq('person_id', personId)
+    if (error) throw error
+  } else {
+    const { error } = await supabase.from('news_likes').insert({ news_id: newsId, person_id: personId })
+    if (error) throw error
+  }
+}
+
+export async function addAnnouncementComment(newsId: string, personId: string, texto: string): Promise<void> {
+  const { error } = await supabase.from('news_comments').insert({
+    news_id: newsId,
+    person_id: personId,
+    texto,
+  })
   if (error) throw error
 }

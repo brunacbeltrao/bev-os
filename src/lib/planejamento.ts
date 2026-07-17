@@ -2,6 +2,7 @@
  *  Objetivos Estratégicos com OKRs, KPIs e diretorias responsáveis.
  *  Todos leem; só a Direx edita (RLS). */
 import { supabase } from './supabase'
+import { z } from 'zod'
 
 export interface StrategicPlan {
   cycle_id: string
@@ -60,6 +61,17 @@ export async function upsertPlan(cycleId: string, foco: string, proposito: strin
   if (error) throw error
 }
 
+const ObjectiveSchema = z.object({
+  id: z.string(),
+  cycle_id: z.string(),
+  titulo: z.string(),
+  descricao: z.string().nullable(),
+  ordem: z.number(),
+  okrs: z.array(z.object({ id: z.string(), objective_id: z.string(), texto: z.string(), ordem: z.number() })).optional().default([]),
+  kpis: z.array(z.object({ id: z.string(), objective_id: z.string(), nome: z.string(), meta: z.string().nullable(), atual: z.string().nullable(), ordem: z.number() })).optional().default([]),
+  dirs: z.array(z.object({ directorate_id: z.string() })).optional().default([]),
+})
+
 export async function getObjectives(cycleId: string): Promise<Objective[]> {
   const { data, error } = await supabase
     .from('strategic_objectives')
@@ -67,16 +79,20 @@ export async function getObjectives(cycleId: string): Promise<Objective[]> {
     .eq('cycle_id', cycleId)
     .order('ordem')
   if (error) throw error
-  return (data ?? []).map((o: Record<string, any>) => ({
-    id: o.id,
-    cycle_id: o.cycle_id,
-    titulo: o.titulo,
-    descricao: o.descricao,
-    ordem: o.ordem,
-    okrs: ((o.okrs ?? []) as Okr[]).sort((a, b) => a.ordem - b.ordem),
-    kpis: ((o.kpis ?? []) as Kpi[]).sort((a, b) => a.ordem - b.ordem),
-    directorate_ids: ((o.dirs ?? []) as Array<{ directorate_id: string }>).map((d) => d.directorate_id),
-  }))
+  
+  return (data ?? []).map((row) => {
+    const o = ObjectiveSchema.parse(row)
+    return {
+      id: o.id,
+      cycle_id: o.cycle_id,
+      titulo: o.titulo,
+      descricao: o.descricao,
+      ordem: o.ordem,
+      okrs: o.okrs.sort((a, b) => a.ordem - b.ordem),
+      kpis: o.kpis.sort((a, b) => a.ordem - b.ordem),
+      directorate_ids: o.dirs.map((d) => d.directorate_id),
+    }
+  })
 }
 
 export async function createObjective(cycleId: string, titulo: string, ordem: number): Promise<string> {

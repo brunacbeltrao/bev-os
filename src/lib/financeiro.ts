@@ -1,6 +1,7 @@
 /** Financeiro (Onda 4 / ADD §3.11) — caixa único institucional.
  *  Todos leem; Gestão + Direx lançam (RLS). */
 import { supabase } from './supabase'
+import { z } from 'zod'
 
 export type FinanceTipo = 'entrada' | 'saida'
 
@@ -24,6 +25,17 @@ export function fmtBRL(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const FinanceEntrySchema = z.object({
+  id: z.string(),
+  tipo: z.enum(['entrada', 'saida']),
+  valor: z.union([z.number(), z.string()]).transform(v => Number(v)),
+  descricao: z.string(),
+  data: z.string(),
+  subarea_id: z.string().nullable(),
+  cycle_id: z.string(),
+  subarea: z.object({ nome: z.string() }).nullable().optional(),
+})
+
 export async function getFinanceEntries(cycleId: string): Promise<FinanceEntry[]> {
   const { data, error } = await supabase
     .from('finance_entries')
@@ -32,7 +44,7 @@ export async function getFinanceEntries(cycleId: string): Promise<FinanceEntry[]
     .order('data', { ascending: false })
     .order('created_at', { ascending: false })
   if (error) throw error
-  return (data ?? []).map((e: Record<string, any>) => ({ ...e, valor: Number(e.valor) })) as FinanceEntry[]
+  return (data ?? []).map((e) => FinanceEntrySchema.parse(e)) as FinanceEntry[]
 }
 
 export function summarize(entries: FinanceEntry[]): FinanceSummary {

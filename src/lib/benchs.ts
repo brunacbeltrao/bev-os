@@ -4,8 +4,12 @@ import { supabase } from './supabase'
 export interface Bench {
   id: string
   subarea_id: string
-  organizacao_parceira: string
-  data: string
+  organizacao_parceira: string // Agora é a EJ do membro
+  membro_nome: string
+  membro_email: string
+  tema: string
+  data: string // Será a data/hora do meet
+  meet_url: string | null
   insights: string | null
   gravacao_url: string | null
   criado_por: string
@@ -22,13 +26,16 @@ export async function getBenchs(cycleId: string, subareaIds: string[] | null) {
 export async function createBench(input: {
   subarea_id: string
   organizacao_parceira: string
+  membro_nome: string
+  membro_email: string
+  tema: string
   data: string
   criado_por: string
-  gravacao_url?: string
+  meet_url?: string
 }) {
   const { error } = await supabase
     .from('benchs')
-    .insert({ ...input, gravacao_url: input.gravacao_url || null })
+    .insert({ ...input, meet_url: input.meet_url || null })
   if (error) throw error
 }
 export async function setBenchInsights(id: string, insights: string, gravacaoUrl?: string) {

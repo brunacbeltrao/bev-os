@@ -2,7 +2,8 @@
  * Layout autenticado: guarda de sessão + Topbar + Sidebar contextual
  * (Blueprint §1). Tudo dentro de /_app exige login.
  */
-import { Navigate, Outlet, createFileRoute } from '@tanstack/react-router'
+import { Navigate, Outlet, createFileRoute, useLocation } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Sidebar } from '@/components/layout/sidebar'
 import { Topbar } from '@/components/layout/topbar'
@@ -33,6 +34,16 @@ function LoadingShell() {
   )
 }
 
+/** Entrada suave por página — conteúdo visível por padrão, só anima no mount. */
+function PageTransition({ children }: { children: ReactNode }) {
+  const location = useLocation()
+  return (
+    <div key={location.pathname} className="animate-fade-up mx-auto w-full max-w-6xl">
+      {children}
+    </div>
+  )
+}
+
 function AppLayout() {
   const auth = useSupabaseSession()
 
@@ -45,8 +56,10 @@ function AppLayout() {
         <Topbar />
         <div className="flex flex-1">
           <Sidebar />
-          <main className="min-w-0 flex-1 p-6">
-            <Outlet />
+          <main className="min-w-0 flex-1 p-4 sm:p-6">
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </main>
         </div>
       </div>

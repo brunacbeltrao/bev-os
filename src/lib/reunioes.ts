@@ -6,6 +6,7 @@
  * RLS: ver = membro da subárea; gerenciar = liderança da subárea.
  */
 import { supabase } from './supabase'
+import { z } from 'zod'
 
 export type RaTipo = 'brainstorming' | 'alinhamento' | 'repasse' | 'capacitacao'
 export const RA_TIPO_LABELS: Record<RaTipo, string> = {
@@ -61,6 +62,27 @@ export async function getRaTypeId(): Promise<string> {
   return data.id as string
 }
 
+const RaMeetingSchema = z.object({
+  id: z.string(),
+  data: z.string(),
+  pauta: z.string().nullable(),
+  subarea_id: z.string(),
+  subarea: z.object({ nome: z.string() }).nullable().optional(),
+  ra_details: z.union([
+    z.array(z.object({
+      event_id: z.string(),
+      tipo: z.enum(['brainstorming', 'alinhamento', 'repasse', 'capacitacao']).nullable(),
+      insights: z.string().nullable(),
+      observacoes: z.string().nullable(),
+      transcricao: z.string().nullable(),
+      repasses: z.string().nullable(),
+      acoes: z.string().nullable(),
+    })),
+    z.any() // Fallback single object case
+  ]).nullable().optional(),
+  ra_attendance: z.array(z.object({ email: z.string(), presente: z.boolean() })).optional().default([]),
+})
+
 /** Reuniões de Área do ciclo nas subáreas do escopo. */
 export async function getRaMeetings(
   subareaIds: string[] | null,
@@ -78,15 +100,17 @@ export async function getRaMeetings(
   if (subareaIds && subareaIds.length > 0) q = q.in('subarea_id', subareaIds)
   const { data, error } = await q
   if (error) throw error
-  return (data ?? []).map((e: Record<string, any>) => {
-    const att = (e.ra_attendance ?? []) as Array<{ email: string; presente: boolean }>
+  
+  return (data ?? []).map((row) => {
+    const e = RaMeetingSchema.parse(row)
+    const att = e.ra_attendance
     return {
       id: e.id,
       data: e.data,
       pauta: e.pauta,
       subarea_id: e.subarea_id,
       subarea_nome: e.subarea?.nome ?? '',
-      details: one<RaDetails>(e.ra_details),
+      details: one<RaDetails>(e.ra_details as any),
       presentes: att.filter((a) => a.presente).length,
       total: att.length,
     }

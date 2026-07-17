@@ -61,8 +61,10 @@ function FrequenciaPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <header className="mb-5">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <ShieldCheck className="size-6" />
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <ShieldCheck className="size-4.5" />
+          </span>
           Frequência
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -85,7 +87,7 @@ function FrequenciaPage() {
             <div className="flex flex-col gap-1.5">
               <Label>Evento</Label>
               <select
-                className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                className="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-9 rounded-md border px-3 text-sm shadow-xs transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2"
                 value={eventId}
                 onChange={(e) => setEventId(e.target.value)}
                 required

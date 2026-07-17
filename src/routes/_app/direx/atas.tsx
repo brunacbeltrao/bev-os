@@ -85,8 +85,10 @@ function DirexReunioesPage() {
     <div className="mx-auto max-w-6xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <Calendar className="size-6 text-indigo-500" />
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <Calendar className="size-4.5" />
+          </span>
             Reuniões de Diretoria
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">Ciclo {cycle.nome} · Pautas, Relatórios, Decisões e Ações</p>

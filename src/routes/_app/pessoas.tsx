@@ -63,7 +63,7 @@ function PessoasPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Pessoas</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Pessoas</h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Diretório de membros · {escopo} · Ciclo {cycle.nome}
         </p>

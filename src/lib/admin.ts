@@ -82,7 +82,7 @@ export async function getSystemSettings() {
   return data
 }
 
-export async function updateSystemSetting(key: string, value: any) {
+export async function updateSystemSetting(key: string, value: unknown) {
   const { error } = await supabase
     .from('system_settings')
     .update({ value })

@@ -11,10 +11,10 @@
  */
 import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Loader2 } from 'lucide-react'
+import { AuthLayout } from '@/components/layout/auth-layout'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { checkRosterEmail, ROLE_LABELS, type RosterCheck } from '@/lib/org'
@@ -105,18 +105,17 @@ function CadastroPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="bg-primary text-primary-foreground mx-auto mb-2 flex size-10 items-center justify-center rounded-lg text-sm font-bold">
-            B
-          </div>
-          <CardTitle className="text-xl">Criar conta no BEV OS</CardTitle>
-          <CardDescription>
-            Apenas membros na lista aprovada pela P&C conseguem se cadastrar.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthLayout>
+      <div className="mb-8">
+        <div className="bg-primary text-primary-foreground mb-4 flex size-10 items-center justify-center rounded-lg text-sm font-bold lg:hidden">
+          B
+        </div>
+        <h2 className="text-2xl font-bold tracking-tight">Criar conta</h2>
+        <p className="text-muted-foreground mt-1.5 text-sm">
+          Apenas membros na lista aprovada pela P&C conseguem se cadastrar.
+        </p>
+      </div>
+      <div>
           {etapa === 'email' && (
             <form onSubmit={verificarEmail} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
@@ -130,13 +129,21 @@ function CadastroPage() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              {erro && <p className="text-destructive text-sm">{erro}</p>}
+              {erro && (
+                <p role="alert" className="text-destructive text-sm">
+                  {erro}
+                </p>
+              )}
               <Button type="submit" disabled={carregando}>
+                {carregando && <Loader2 className="size-4 animate-spin" />}
                 {carregando ? 'Verificando…' : 'Continuar'}
               </Button>
               <p className="text-muted-foreground text-center text-sm">
                 Já tem conta?{' '}
-                <Link to="/login" className="text-primary font-medium hover:underline">
+                <Link
+                  to="/login"
+                  className="text-foreground font-medium underline underline-offset-4"
+                >
                   Entrar
                 </Link>
               </p>
@@ -189,8 +196,13 @@ function CadastroPage() {
                   onChange={(e) => setSenha2(e.target.value)}
                 />
               </div>
-              {erro && <p className="text-destructive text-sm">{erro}</p>}
+              {erro && (
+                <p role="alert" className="text-destructive text-sm">
+                  {erro}
+                </p>
+              )}
               <Button type="submit" disabled={carregando}>
+                {carregando && <Loader2 className="size-4 animate-spin" />}
                 {carregando ? 'Criando conta…' : 'Criar conta'}
               </Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => setEtapa('email')}>
@@ -212,8 +224,7 @@ function CadastroPage() {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </main>
+      </div>
+    </AuthLayout>
   )
 }

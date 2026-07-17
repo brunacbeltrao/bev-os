@@ -17,6 +17,7 @@ import { Route as AppWarningsRouteImport } from './routes/_app/warnings'
 import { Route as AppVisaoGeralRouteImport } from './routes/_app/visao-geral'
 import { Route as AppReunioesRouteImport } from './routes/_app/reunioes'
 import { Route as AppProjetosRouteImport } from './routes/_app/projetos'
+import { Route as AppPlanejamentoRouteImport } from './routes/_app/planejamento'
 import { Route as AppPessoasRouteImport } from './routes/_app/pessoas'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AppPdiRouteImport } from './routes/_app/pdi'
@@ -34,7 +35,6 @@ import { Route as AppAdminPcRouteImport } from './routes/_app/admin-pc'
 import { Route as AppDirexIndexRouteImport } from './routes/_app/direx/index'
 import { Route as AppDirexTodoRouteImport } from './routes/_app/direx/todo'
 import { Route as AppDirexProblemasRouteImport } from './routes/_app/direx/problemas'
-import { Route as AppDirexPlanejamentoRouteImport } from './routes/_app/direx/planejamento'
 import { Route as AppDirexLideradosRouteImport } from './routes/_app/direx/liderados'
 import { Route as AppDirexDecisoesRouteImport } from './routes/_app/direx/decisoes'
 import { Route as AppDirexAtasRouteImport } from './routes/_app/direx/atas'
@@ -76,6 +76,11 @@ const AppReunioesRoute = AppReunioesRouteImport.update({
 const AppProjetosRoute = AppProjetosRouteImport.update({
   id: '/projetos',
   path: '/projetos',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlanejamentoRoute = AppPlanejamentoRouteImport.update({
+  id: '/planejamento',
+  path: '/planejamento',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPessoasRoute = AppPessoasRouteImport.update({
@@ -163,11 +168,6 @@ const AppDirexProblemasRoute = AppDirexProblemasRouteImport.update({
   path: '/direx/problemas',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexPlanejamentoRoute = AppDirexPlanejamentoRouteImport.update({
-  id: '/direx/planejamento',
-  path: '/direx/planejamento',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppDirexLideradosRoute = AppDirexLideradosRouteImport.update({
   id: '/direx/liderados',
   path: '/direx/liderados',
@@ -202,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/pdi': typeof AppPdiRoute
   '/perfil': typeof AppPerfilRoute
   '/pessoas': typeof AppPessoasRoute
+  '/planejamento': typeof AppPlanejamentoRoute
   '/projetos': typeof AppProjetosRoute
   '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
@@ -209,7 +210,6 @@ export interface FileRoutesByFullPath {
   '/direx/atas': typeof AppDirexAtasRoute
   '/direx/decisoes': typeof AppDirexDecisoesRoute
   '/direx/liderados': typeof AppDirexLideradosRoute
-  '/direx/planejamento': typeof AppDirexPlanejamentoRoute
   '/direx/problemas': typeof AppDirexProblemasRoute
   '/direx/todo': typeof AppDirexTodoRoute
   '/direx/': typeof AppDirexIndexRoute
@@ -231,6 +231,7 @@ export interface FileRoutesByTo {
   '/pdi': typeof AppPdiRoute
   '/perfil': typeof AppPerfilRoute
   '/pessoas': typeof AppPessoasRoute
+  '/planejamento': typeof AppPlanejamentoRoute
   '/projetos': typeof AppProjetosRoute
   '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
@@ -239,7 +240,6 @@ export interface FileRoutesByTo {
   '/direx/atas': typeof AppDirexAtasRoute
   '/direx/decisoes': typeof AppDirexDecisoesRoute
   '/direx/liderados': typeof AppDirexLideradosRoute
-  '/direx/planejamento': typeof AppDirexPlanejamentoRoute
   '/direx/problemas': typeof AppDirexProblemasRoute
   '/direx/todo': typeof AppDirexTodoRoute
   '/direx': typeof AppDirexIndexRoute
@@ -263,6 +263,7 @@ export interface FileRoutesById {
   '/_app/pdi': typeof AppPdiRoute
   '/_app/perfil': typeof AppPerfilRoute
   '/_app/pessoas': typeof AppPessoasRoute
+  '/_app/planejamento': typeof AppPlanejamentoRoute
   '/_app/projetos': typeof AppProjetosRoute
   '/_app/reunioes': typeof AppReunioesRoute
   '/_app/visao-geral': typeof AppVisaoGeralRoute
@@ -271,7 +272,6 @@ export interface FileRoutesById {
   '/_app/direx/atas': typeof AppDirexAtasRoute
   '/_app/direx/decisoes': typeof AppDirexDecisoesRoute
   '/_app/direx/liderados': typeof AppDirexLideradosRoute
-  '/_app/direx/planejamento': typeof AppDirexPlanejamentoRoute
   '/_app/direx/problemas': typeof AppDirexProblemasRoute
   '/_app/direx/todo': typeof AppDirexTodoRoute
   '/_app/direx/': typeof AppDirexIndexRoute
@@ -296,6 +296,7 @@ export interface FileRouteTypes {
     | '/pdi'
     | '/perfil'
     | '/pessoas'
+    | '/planejamento'
     | '/projetos'
     | '/reunioes'
     | '/visao-geral'
@@ -303,7 +304,6 @@ export interface FileRouteTypes {
     | '/direx/atas'
     | '/direx/decisoes'
     | '/direx/liderados'
-    | '/direx/planejamento'
     | '/direx/problemas'
     | '/direx/todo'
     | '/direx/'
@@ -325,6 +325,7 @@ export interface FileRouteTypes {
     | '/pdi'
     | '/perfil'
     | '/pessoas'
+    | '/planejamento'
     | '/projetos'
     | '/reunioes'
     | '/visao-geral'
@@ -333,7 +334,6 @@ export interface FileRouteTypes {
     | '/direx/atas'
     | '/direx/decisoes'
     | '/direx/liderados'
-    | '/direx/planejamento'
     | '/direx/problemas'
     | '/direx/todo'
     | '/direx'
@@ -356,6 +356,7 @@ export interface FileRouteTypes {
     | '/_app/pdi'
     | '/_app/perfil'
     | '/_app/pessoas'
+    | '/_app/planejamento'
     | '/_app/projetos'
     | '/_app/reunioes'
     | '/_app/visao-geral'
@@ -364,7 +365,6 @@ export interface FileRouteTypes {
     | '/_app/direx/atas'
     | '/_app/direx/decisoes'
     | '/_app/direx/liderados'
-    | '/_app/direx/planejamento'
     | '/_app/direx/problemas'
     | '/_app/direx/todo'
     | '/_app/direx/'
@@ -432,6 +432,13 @@ declare module '@tanstack/react-router' {
       path: '/projetos'
       fullPath: '/projetos'
       preLoaderRoute: typeof AppProjetosRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/planejamento': {
+      id: '/_app/planejamento'
+      path: '/planejamento'
+      fullPath: '/planejamento'
+      preLoaderRoute: typeof AppPlanejamentoRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/pessoas': {
@@ -553,13 +560,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDirexProblemasRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/planejamento': {
-      id: '/_app/direx/planejamento'
-      path: '/direx/planejamento'
-      fullPath: '/direx/planejamento'
-      preLoaderRoute: typeof AppDirexPlanejamentoRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/direx/liderados': {
       id: '/_app/direx/liderados'
       path: '/direx/liderados'
@@ -599,6 +599,7 @@ interface AppRouteChildren {
   AppPdiRoute: typeof AppPdiRoute
   AppPerfilRoute: typeof AppPerfilRoute
   AppPessoasRoute: typeof AppPessoasRoute
+  AppPlanejamentoRoute: typeof AppPlanejamentoRoute
   AppProjetosRoute: typeof AppProjetosRoute
   AppReunioesRoute: typeof AppReunioesRoute
   AppVisaoGeralRoute: typeof AppVisaoGeralRoute
@@ -607,7 +608,6 @@ interface AppRouteChildren {
   AppDirexAtasRoute: typeof AppDirexAtasRoute
   AppDirexDecisoesRoute: typeof AppDirexDecisoesRoute
   AppDirexLideradosRoute: typeof AppDirexLideradosRoute
-  AppDirexPlanejamentoRoute: typeof AppDirexPlanejamentoRoute
   AppDirexProblemasRoute: typeof AppDirexProblemasRoute
   AppDirexTodoRoute: typeof AppDirexTodoRoute
   AppDirexIndexRoute: typeof AppDirexIndexRoute
@@ -628,6 +628,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPdiRoute: AppPdiRoute,
   AppPerfilRoute: AppPerfilRoute,
   AppPessoasRoute: AppPessoasRoute,
+  AppPlanejamentoRoute: AppPlanejamentoRoute,
   AppProjetosRoute: AppProjetosRoute,
   AppReunioesRoute: AppReunioesRoute,
   AppVisaoGeralRoute: AppVisaoGeralRoute,
@@ -636,7 +637,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppDirexAtasRoute: AppDirexAtasRoute,
   AppDirexDecisoesRoute: AppDirexDecisoesRoute,
   AppDirexLideradosRoute: AppDirexLideradosRoute,
-  AppDirexPlanejamentoRoute: AppDirexPlanejamentoRoute,
   AppDirexProblemasRoute: AppDirexProblemasRoute,
   AppDirexTodoRoute: AppDirexTodoRoute,
   AppDirexIndexRoute: AppDirexIndexRoute,

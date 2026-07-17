@@ -6,8 +6,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowDownRight, ArrowUpRight, Plus, Trash2, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApp } from '@/lib/app-context'
 import { useAllSubareas, fmtDate } from '@/lib/use-context-scope'
@@ -65,36 +67,34 @@ function FinanceiroPage() {
 
   return (
     <div className="mx-auto max-w-4xl">
-      <header className="mb-5">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Wallet className="size-6" />
-          Financeiro
-        </h1>
-        <p className="text-muted-foreground mt-1 text-sm">
-          Caixa único da EJ · Ciclo {cycle.nome} · atualização semanal
-        </p>
-      </header>
+      <PageHeader
+        icon={Wallet}
+        title="Financeiro"
+        description={`Caixa único da EJ · Ciclo ${cycle.nome} · atualização semanal`}
+      />
 
       {/* Saldo */}
       <Card className="mb-5">
         <CardContent className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-3">
           <div>
-            <p className="text-muted-foreground text-xs">Saldo atual do caixa</p>
-            <p className={`text-3xl font-semibold ${sum.saldo < 0 ? 'text-red-600' : ''}`}>
+            <p className="text-muted-foreground text-xs font-medium">Saldo atual do caixa</p>
+            <p
+              className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${sum.saldo < 0 ? 'text-status-danger' : ''}`}
+            >
               {q.isPending ? '—' : fmtBRL(sum.saldo)}
             </p>
           </div>
           <div className="flex flex-col justify-center">
-            <p className="text-emerald-600 flex items-center gap-1 text-xs">
+            <p className="text-status-success flex items-center gap-1 text-xs font-medium">
               <ArrowUpRight className="size-3.5" /> Entradas
             </p>
-            <p className="text-lg font-medium">{fmtBRL(sum.entradas)}</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums">{fmtBRL(sum.entradas)}</p>
           </div>
           <div className="flex flex-col justify-center">
-            <p className="flex items-center gap-1 text-xs text-red-600">
+            <p className="text-status-danger flex items-center gap-1 text-xs font-medium">
               <ArrowDownRight className="size-3.5" /> Saídas
             </p>
-            <p className="text-lg font-medium">{fmtBRL(sum.saidas)}</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums">{fmtBRL(sum.saidas)}</p>
           </div>
         </CardContent>
       </Card>
@@ -113,13 +113,13 @@ function FinanceiroPage() {
               <div className="flex flex-wrap items-end gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label>Tipo</Label>
-                  <div className="flex gap-1.5">
+                  <div className="bg-muted flex h-9 items-center gap-0.5 rounded-lg p-0.5">
                     {(['entrada', 'saida'] as FinanceTipo[]).map((t) => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => set('tipo', t)}
-                        className={`rounded-md border px-3 py-1.5 text-sm ${form.tipo === t ? 'bg-accent border-ring' : 'bg-card'}`}
+                        className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${form.tipo === t ? 'bg-card shadow-xs' : 'text-muted-foreground hover:text-foreground'}`}
                       >
                         {t === 'entrada' ? 'Entrada' : 'Saída'}
                       </button>
@@ -179,17 +179,17 @@ function FinanceiroPage() {
       {q.isPending ? (
         <Skeleton className="h-40 w-full" />
       ) : entries.length === 0 ? (
-        <Card>
-          <CardContent className="text-muted-foreground p-8 text-center text-sm">
-            Nenhum lançamento neste ciclo ainda.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Wallet}
+          title="Nenhum lançamento neste ciclo"
+          description="As entradas e saídas do caixa aparecem aqui assim que a Gestão registrar."
+        />
       ) : (
         <div className="flex flex-col gap-2">
           {entries.map((e) => (
             <div key={e.id} className="bg-card flex items-center gap-3 rounded-lg border p-3">
               <div
-                className={`flex size-8 items-center justify-center rounded-full ${e.tipo === 'entrada' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}
+                className={`flex size-8 shrink-0 items-center justify-center rounded-full ${e.tipo === 'entrada' ? 'bg-status-success-bg text-status-success' : 'bg-status-danger-bg text-status-danger'}`}
               >
                 {e.tipo === 'entrada' ? (
                   <ArrowUpRight className="size-4" />
@@ -205,7 +205,7 @@ function FinanceiroPage() {
                 </p>
               </div>
               <span
-                className={`text-sm font-semibold ${e.tipo === 'entrada' ? 'text-emerald-600' : 'text-red-600'}`}
+                className={`text-sm font-semibold tabular-nums ${e.tipo === 'entrada' ? 'text-status-success' : 'text-status-danger'}`}
               >
                 {e.tipo === 'entrada' ? '+' : '−'} {fmtBRL(e.valor)}
               </span>

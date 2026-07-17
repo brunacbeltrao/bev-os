@@ -24,6 +24,7 @@ import {
   type Occupation,
   type Person,
 } from './org'
+import { isDirexMember, isLeaderMember, isPcMember } from './permissions'
 
 // ---------- Sessão ----------
 
@@ -75,6 +76,7 @@ export interface AppState {
   primary: Occupation
   isDirex: boolean
   isLeader: boolean
+  souPC: boolean
   /** Opções disponíveis no seletor, conforme papel. */
   contextOptions: AppContextSelection[]
   context: AppContextSelection
@@ -197,14 +199,20 @@ export function AppProvider({
     )
   }
 
+  // Regras de negócio centralizadas
+  const isDirex = isDirexMember(occupations)
+  const isLeader = isLeaderMember(occupations)
+  const isPc = isPcMember(occupations)
+
   const value: AppState = {
     session,
     person: personQ.data,
     cycle: cycleQ.data!,
     occupations,
     primary,
-    isDirex: primary.role === 'diretor',
-    isLeader: ['diretor', 'gerente', 'coordenador'].includes(primary.role),
+    isDirex,
+    isLeader,
+    souPC: isPc,
     contextOptions,
     context,
     setContext,

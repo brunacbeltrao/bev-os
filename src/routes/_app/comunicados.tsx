@@ -303,7 +303,7 @@ function AvisosPage() {
     <div className="mx-auto max-w-5xl">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Avisos</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Avisos</h1>
           <p className="text-muted-foreground mt-1 text-sm">
             Mural institucional oficial — publicado pela Diretoria · Ciclo {cycle.nome}
           </p>

@@ -56,8 +56,38 @@ function WarningsPage() {
 
   const applyMut = useMutation({
     mutationFn: () => applyWarning(alvo, flagId, justificativa, person.id),
-    onSuccess: () => {
+    onMutate: async () => {
       setJustificativa('')
+      // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+      await queryClient.cancelQueries({ queryKey: ['warning-totals'] })
+      
+      // Snapshot the previous value
+      const previousTotals = queryClient.getQueryData(['warning-totals', cycle.id])
+
+      // Optimistically update to the new value (fake add points)
+      if (flagId && alvo) {
+        const flag = flagsQ.data?.find(f => f.id === flagId)
+        if (flag) {
+          queryClient.setQueryData(['warning-totals', cycle.id], (old: any) => {
+            if (!old) return old
+            const cloned = [...old]
+            const idx = cloned.findIndex(t => t.person_id === alvo)
+            if (idx >= 0) {
+              cloned[idx] = { ...cloned[idx], pontos: cloned[idx].pontos + flag.pontos }
+            }
+            return cloned
+          })
+        }
+      }
+      
+      return { previousTotals }
+    },
+    onError: (_err, _newTodo, context) => {
+      if (context?.previousTotals) {
+        queryClient.setQueryData(['warning-totals', cycle.id], context.previousTotals)
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['warnings'] })
       queryClient.invalidateQueries({ queryKey: ['warning-totals'] })
     },
@@ -68,8 +98,10 @@ function WarningsPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <header className="mb-5">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Flag className="size-6" />
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <Flag className="size-4.5" />
+          </span>
           Warnings
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -120,7 +152,7 @@ function WarningsPage() {
                 <div className="flex flex-col gap-1.5">
                   <Label>Membro</Label>
                   <select
-                    className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                    className="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-9 rounded-md border px-3 text-sm shadow-xs transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2"
                     value={alvo}
                     onChange={(e) => setAlvo(e.target.value)}
                     required
@@ -138,7 +170,7 @@ function WarningsPage() {
                 <div className="flex flex-col gap-1.5">
                   <Label>Bandeira</Label>
                   <select
-                    className="border-input bg-background h-9 rounded-md border px-3 text-sm"
+                    className="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-9 rounded-md border px-3 text-sm shadow-xs transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2"
                     value={flagId}
                     onChange={(e) => setFlagId(e.target.value)}
                     required

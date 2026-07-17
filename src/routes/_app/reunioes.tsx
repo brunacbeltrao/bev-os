@@ -90,8 +90,10 @@ function ReunioesPage() {
     <div className="mx-auto max-w-6xl">
       <header className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-            <CalendarClock className="size-6" />
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <CalendarClock className="size-4.5" />
+          </span>
             Reuniões de Área
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">

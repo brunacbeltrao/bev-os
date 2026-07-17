@@ -130,9 +130,10 @@ export async function setFaturamentoRealizado(
 ): Promise<void> {
   const { error } = await supabase
     .from('faturamento_mensal')
-    .update({ realizado })
-    .eq('ano', ano)
-    .eq('mes', mes)
+    .upsert(
+      { ano, mes, realizado },
+      { onConflict: 'ano,mes' }
+    )
   if (error) throw error
 }
 

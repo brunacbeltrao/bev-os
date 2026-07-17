@@ -55,7 +55,7 @@ function PerfilPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <header className="mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Meu perfil</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Meu perfil</h1>
       </header>
 
       <Card>

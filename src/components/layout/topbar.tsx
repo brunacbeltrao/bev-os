@@ -1,9 +1,10 @@
 /**
  * Topbar (Blueprint §1): fixa e igual em todo o sistema.
- * logo BEV OS | Seletor de Contexto | Busca | Toggle de tema | Avatar
+ * menu (mobile) | logo BEV OS | Seletor de Contexto | Busca | Tema | Avatar
  */
+import { useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { LogOut, UserCircle } from 'lucide-react'
+import { LogOut, Menu, UserCircle } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { SidebarContent } from './sidebar'
 import { ContextSelector } from './context-selector'
 import { GlobalSearch } from './global-search'
 import { ThemeToggle } from './theme-toggle'
@@ -25,6 +28,7 @@ import { supabase } from '@/lib/supabase'
 export function Topbar() {
   const { person, primary, cycle } = useApp()
   const navigate = useNavigate()
+  const [menuAberto, setMenuAberto] = useState(false)
 
   async function sair() {
     await supabase.auth.signOut()
@@ -32,15 +36,38 @@ export function Topbar() {
   }
 
   return (
-    <header className="bg-topbar sticky top-0 z-40 flex h-14 items-center gap-4 border-b px-4">
-      <Link to="/" className="flex items-center gap-2">
+    <header className="bg-topbar/90 sticky top-0 z-40 flex h-14 items-center gap-3 border-b px-4 backdrop-blur-md">
+      <Sheet open={menuAberto} onOpenChange={setMenuAberto}>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
+            <Menu className="size-5" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent
+          side="left"
+          className="bg-sidebar flex w-72 flex-col gap-0 overflow-y-auto p-0 pt-10"
+        >
+          <SheetTitle className="sr-only">Navegação</SheetTitle>
+          <div className="border-sidebar-border border-b px-3 pb-3 sm:hidden">
+            <ContextSelector />
+          </div>
+          <SidebarContent onNavigate={() => setMenuAberto(false)} />
+        </SheetContent>
+      </Sheet>
+
+      <Link
+        to="/"
+        className="focus-visible:ring-ring/60 flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2"
+      >
         <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-xs font-bold">
           B
         </span>
         <span className="text-sm font-semibold tracking-tight">BEV OS</span>
       </Link>
 
-      <ContextSelector />
+      <div className="hidden sm:block">
+        <ContextSelector />
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
         <GlobalSearch />

@@ -8,11 +8,12 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarCheck, Lock, Plus, Target, TrendingUp, Users } from 'lucide-react'
+import { CalendarCheck, Lock, Plus, Target, TrendingUp, Users, UserSearch } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -68,8 +69,10 @@ function LideradosPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <header className="mb-5">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Users className="size-6" />
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <Users className="size-4.5" />
+          </span>
           Meus Liderados
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -113,10 +116,12 @@ function LideradosPage() {
             {selecionado ? (
               <PersonPanel key={selecionado.person_id} liderado={selecionado} />
             ) : (
-              <Card>
-                <CardContent className="text-muted-foreground p-10 text-center text-sm">
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={UserSearch}
+                title="Selecione uma pessoa"
+                description="Clique em alguém na lista ao lado para ver desempenho, demandas, PDI e histórico de 1:1."
+                className="h-full min-h-64"
+              />
             )}
           </div>
         </div>

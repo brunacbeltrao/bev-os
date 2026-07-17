@@ -139,9 +139,9 @@ export async function createPdi(personId: string, avaliadorId: string | null): P
   return data.id as string
 }
 export async function updatePlan(planId: string, patch: Partial<PdiPlan>): Promise<void> {
-  const { avaliador, pc_responsavel, ...clean } = patch as any
-  void avaliador
-  void pc_responsavel
+  const clean = Object.fromEntries(
+    Object.entries(patch).filter(([key]) => key !== 'avaliador' && key !== 'pc_responsavel')
+  )
   const { error } = await supabase.from('pdi_plans').update(clean).eq('id', planId)
   if (error) throw error
 }

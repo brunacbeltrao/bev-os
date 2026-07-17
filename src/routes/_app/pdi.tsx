@@ -518,8 +518,10 @@ function PdiPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <header className="mb-5">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Target className="size-6" /> PDI
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <Target className="size-4.5" />
+          </span> PDI
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Plano de Desenvolvimento Individual · Ciclo {cycle.nome}

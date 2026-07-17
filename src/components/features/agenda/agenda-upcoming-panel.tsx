@@ -32,11 +32,11 @@ export function AgendaUpcomingPanel({ events, onSelect }: UpcomingPanelProps) {
             <button
               key={e.id}
               onClick={() => onSelect(e.id)}
-              className="bg-card hover:bg-accent/80 flex items-center gap-3 rounded-lg border p-3 text-left shadow-sm transition-all hover:shadow hover:border-primary/30 group"
+              className="bg-card hover:bg-accent focus-visible:ring-ring/60 flex items-center gap-3 rounded-lg border p-3 text-left shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2"
             >
-              <Badge variant={MEETING_BADGE[e.meeting_type.slug]} className="shadow-sm">{MEETING_CHIP[e.meeting_type.slug]}</Badge>
+              <Badge variant={MEETING_BADGE[e.meeting_type.slug]}>{MEETING_CHIP[e.meeting_type.slug]}</Badge>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{eventDisplayName(e)}</p>
+                <p className="text-foreground truncate text-sm font-semibold">{eventDisplayName(e)}</p>
                 <p className="text-muted-foreground text-xs font-medium">{fmtDate(e.data, true)}</p>
               </div>
             </button>

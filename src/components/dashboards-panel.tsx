@@ -33,6 +33,7 @@ import { useApp } from '@/lib/app-context'
 import { fmtBRL } from '@/lib/financeiro'
 import { MiniLineChart, type LinePoint } from '@/components/mini-line-chart'
 import * as D from '@/lib/dashboards'
+import { canEditDirectorate } from '@/lib/permissions'
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const ANO_BJ = 2026
@@ -548,8 +549,8 @@ function InstitucionalSection({ canEdit }: { canEdit: boolean }) {
 }
 
 export function DashboardsPanel() {
-  const { isDirex, isLeader, primary } = useApp()
-  const canEditDir = (slug: D.DirSlug) => isDirex || (isLeader && primary.directorate.slug === slug)
+  const { occupations } = useApp()
+  const canEditDir = (slug: D.DirSlug) => canEditDirectorate(occupations, slug)
 
   return (
     <div className="flex flex-col gap-4">

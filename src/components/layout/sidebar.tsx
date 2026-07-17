@@ -3,16 +3,18 @@
  * Contexto de área: lista fixa de módulos na ordem do Blueprint §3 —
  * o contexto muda o ESCOPO dos dados, não a lista de módulos.
  * "Visão Geral BEV" e Direx têm sidebars próprias (§5).
- * Módulos das Ondas 1–4 aparecem desabilitados com a onda indicada.
+ * Em telas pequenas o mesmo conteúdo abre em um drawer (Sheet) via Topbar.
  */
 import { Link, useLocation } from '@tanstack/react-router'
 import {
   BarChart3,
   BookOpen,
+  Briefcase,
   CalendarClock,
-  Compass,
   CalendarDays,
+  Compass,
   Flag,
+  Handshake,
   Home,
   Landmark,
   Megaphone,
@@ -26,7 +28,6 @@ import {
   Settings,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useApp } from '@/lib/app-context'
 import { cn } from '@/lib/utils'
@@ -34,8 +35,8 @@ import { cn } from '@/lib/utils'
 interface ModuleItem {
   label: string
   icon: LucideIcon
-  to?: string // definido = módulo já construído
-  wave?: 1 | 2 | 3 | 4 // onda em que o módulo entra
+  to?: string
+  href?: string
   /** slugs de subárea em que o módulo aparece (Blueprint §3, itens 7–8) */
   onlyInSubareas?: string[]
   /** módulo exclusivo de lideranças (diretor/gerente/coordenador) */
@@ -55,6 +56,15 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Calendário', icon: CalendarDays, to: '/agenda' },
       { label: 'Reuniões de Área', icon: CalendarClock, to: '/reunioes' },
       { label: 'Avisos', icon: Megaphone, to: '/comunicados' },
+    ],
+  },
+  {
+    titulo: 'Operação',
+    items: [
+      { label: 'Comercial', icon: Handshake, href: 'https://bevilaqua-comercial.lovable.app/' },
+      { label: 'Projetos', icon: Briefcase, href: '#' },
+      { label: 'Institucional', icon: Sparkles, href: 'https://mg.mail.notion.so/c/eJxMkL1u4zoQhZ-G6mSQQ4o_hYp747jcVxCGnHFMQJa0Imkgb79wrN2knG9Occ5Ho3QmgOp4VM4bUINztuM75nlqLdMo3P8C4BsIAKH_EwAkkzRI1HtOujekdR-JsDfRhqvUhpNUz7A7d7cxaFLGWSRLzAQQTUgmDNZyjMpp1-URJFjplFUDBG1P1vtBaQwOpNQYB2Hks8NpWWtel1NZu3m81bqVrzYXARfctr_ftN4FXDYBlzde6o5zT2v__vbe6-BYs4-oLXmZYhiiT1dyzg9XtkEJfVmEPr_mbq3cBNgnwFTzI9fPKS-PXJkOzJTrtOEHTzXXmQ_6BV5BAXZ7FKHPsrtzRcKKh9GyYeLpp89gv6upmIJHklJqr8CDGuLhch_j3haMPNcdV2Fk5Eee8XfD07p_nOLe1fFVv35uLPS58EK_1pqvOeFTzr9_afGItMJ7fyzr2lJaLGnPkUcBw49zavssYOgeI_wJAAD__wOhsKo' },
+      { label: 'Marketing', icon: Megaphone, href: '#' },
     ],
   },
   {
@@ -82,51 +92,72 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Pessoas', icon: Users, to: '/pessoas' },
     ],
   },
-
   {
     titulo: 'Conhecimento',
     items: [{ label: 'Memória Institucional', icon: BookOpen, to: '/memoria' }],
   },
 ]
 
-function NavItem({ item, active }: { item: ModuleItem; active: boolean }) {
+function NavItem({
+  item,
+  active,
+  onNavigate,
+}: {
+  item: ModuleItem
+  active: boolean
+  onNavigate?: () => void
+}) {
   const Icon = item.icon
-  if (item.to) {
+  if (item.href) {
     return (
-      <Link
-        to={item.to}
+      <a
+        href={item.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onNavigate}
         className={cn(
-          'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
+          'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/60 flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2',
           active && 'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
         )}
       >
         <Icon className="size-4 shrink-0" />
         <span className="truncate">{item.label}</span>
-      </Link>
+      </a>
     )
   }
+
   return (
-    <div
-      className="text-sidebar-foreground/50 flex cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm"
-      title={`Chega na Onda ${item.wave}`}
+    <Link
+      to={item.to!}
+      onClick={onNavigate}
+      className={cn(
+        'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/60 flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2',
+        active && 'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+      )}
     >
       <Icon className="size-4 shrink-0" />
       <span className="truncate">{item.label}</span>
-      <Badge variant="neutral" className="ml-auto px-1.5 text-[10px]">
-        Onda {item.wave}
-      </Badge>
-    </div>
+    </Link>
   )
 }
 
-function AreaSidebar() {
-  const { isLeader } = useApp()
+function AreaNav({ onNavigate }: { onNavigate?: () => void }) {
+  const { isLeader, isDirex, occupations } = useApp()
   const location = useLocation()
+
+  function visible(m: ModuleItem): boolean {
+    if (m.onlyLeaders && !isLeader) return false
+    if (m.onlyInSubareas) {
+      const pertence = occupations.some((o) => m.onlyInSubareas!.includes(o.subarea.slug))
+      if (!pertence && !isDirex) return false
+    }
+    return true
+  }
 
   return (
     <nav className="flex flex-col gap-3 p-2">
       {GROUPS.map((g) => {
-        const items = g.items.filter((m) => !(m.onlyLeaders && !isLeader))
+        const items = g.items.filter(visible)
         if (items.length === 0) return null
         return (
           <div key={g.titulo ?? 'root'} className="flex flex-col gap-0.5">
@@ -136,7 +167,12 @@ function AreaSidebar() {
               </div>
             )}
             {items.map((item) => (
-              <NavItem key={item.label} item={item} active={item.to === location.pathname} />
+              <NavItem
+                key={item.label}
+                item={item}
+                active={item.to === location.pathname}
+                onNavigate={onNavigate}
+              />
             ))}
           </div>
         )
@@ -145,12 +181,7 @@ function AreaSidebar() {
   )
 }
 
-const DIREX_ITEMS: Array<{
-  label: string
-  to?: string
-  nota?: string
-  gerenteVe: boolean
-}> = [
+const DIREX_ITEMS: Array<{ label: string; to: string; gerenteVe: boolean }> = [
   { label: 'Resumo (Inbox)', to: '/direx', gerenteVe: true },
   { label: 'To do', to: '/direx/todo', gerenteVe: false },
   { label: 'Reuniões de Diretoria', to: '/direx/atas', gerenteVe: false },
@@ -158,7 +189,7 @@ const DIREX_ITEMS: Array<{
   { label: 'P.E 2026.2', to: '/direx/planejamento', gerenteVe: false },
 ]
 
-function DirexSidebar() {
+function DirexNav({ onNavigate }: { onNavigate?: () => void }) {
   const { isDirex } = useApp()
   const location = useLocation()
   return (
@@ -166,76 +197,59 @@ function DirexSidebar() {
       <div className="text-muted-foreground px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide">
         Direx
       </div>
-      {DIREX_ITEMS.filter((i) => isDirex || i.gerenteVe).map((i) =>
-        i.to ? (
-          <Link
-            key={i.label}
-            to={i.to}
-            className={cn(
-              'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors',
-              location.pathname === i.to &&
-                'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
-            )}
-          >
-            <Landmark className="size-4 shrink-0" />
-            <span className="truncate">{i.label}</span>
-          </Link>
-        ) : (
-          <div
-            key={i.label}
-            className="text-sidebar-foreground/50 flex cursor-not-allowed items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm"
-          >
-            <Landmark className="size-4 shrink-0" />
-            <span className="truncate">{i.label}</span>
-            <Badge variant="neutral" className="ml-auto px-1.5 text-[10px]">
-              {i.nota}
-            </Badge>
-          </div>
-        ),
-      )}
+      {DIREX_ITEMS.filter((i) => isDirex || i.gerenteVe).map((i) => (
+        <Link
+          key={i.label}
+          to={i.to}
+          onClick={onNavigate}
+          className={cn(
+            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/60 flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2',
+            location.pathname === i.to &&
+              'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+          )}
+        >
+          <Landmark className="size-4 shrink-0" />
+          <span className="truncate">{i.label}</span>
+        </Link>
+      ))}
     </nav>
   )
 }
 
-function VisaoGeralSidebar() {
-  return (
-    <nav className="flex flex-col gap-0.5 p-2">
-      <div className="text-muted-foreground px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide">
-        Visão Geral BEV
-      </div>
-      <p className="text-sidebar-foreground/60 px-2.5 py-1.5 text-xs leading-relaxed">
-        Leitura consolidada de todas as áreas, lado a lado. Sem módulos de ação — os indicadores
-        por área chegam junto com os módulos das próximas ondas.
-      </p>
-    </nav>
-  )
-}
-
-export function Sidebar() {
+/** Conteúdo da sidebar — usado no <aside> fixo (desktop) e no drawer (mobile). */
+export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation()
   const isDirexPage = location.pathname.startsWith('/direx')
-  const isVisaoGeral = location.pathname.startsWith('/visao-geral')
 
   return (
-    <aside className="bg-sidebar border-sidebar-border sticky top-14 flex h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col overflow-y-auto border-r">
-      {isDirexPage ? <DirexSidebar /> : isVisaoGeral ? <VisaoGeralSidebar /> : <AreaSidebar />}
-      <div className="mt-auto p-3 flex flex-col gap-3">
-        {/* Módulo Admin escondido no rodapé para não poluir o dia a dia */}
+    <>
+      {isDirexPage ? <DirexNav onNavigate={onNavigate} /> : <AreaNav onNavigate={onNavigate} />}
+      <div className="mt-auto flex flex-col gap-3 p-3">
         {location.pathname !== '/admin-pc' && (
           <Link
             to="/admin-pc"
-            className="text-sidebar-foreground/50 hover:text-sidebar-foreground flex items-center gap-2 text-[11px] font-medium transition-colors"
+            onClick={onNavigate}
+            className="text-sidebar-foreground/60 hover:text-sidebar-foreground flex items-center gap-2 text-[11px] font-medium transition-colors"
           >
             <Settings className="size-3.5" />
             Administração do sistema
           </Link>
         )}
         <Separator className="mb-1" />
-        <p className="text-sidebar-foreground/50 text-[11px] leading-relaxed">
-          BEV OS<br />
+        <p className="text-sidebar-foreground/60 text-[11px] leading-relaxed">
+          BEV OS
+          <br />
           Sistema operacional do Bevilaqua
         </p>
       </div>
+    </>
+  )
+}
+
+export function Sidebar() {
+  return (
+    <aside className="bg-sidebar border-sidebar-border sticky top-14 hidden h-[calc(100vh-3.5rem)] w-60 shrink-0 flex-col overflow-y-auto border-r md:flex">
+      <SidebarContent />
     </aside>
   )
 }

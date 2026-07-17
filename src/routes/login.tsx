@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Loader2 } from 'lucide-react'
+import { AuthLayout } from '@/components/layout/auth-layout'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { supabase } from '@/lib/supabase'
@@ -38,52 +39,58 @@ function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <div className="bg-primary text-primary-foreground mx-auto mb-2 flex size-10 items-center justify-center rounded-lg text-sm font-bold">
-            B
-          </div>
-          <CardTitle className="text-xl">BEV OS</CardTitle>
-          <CardDescription>Sistema interno do Bevilaqua</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={entrar} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="senha">Senha</Label>
-              <Input
-                id="senha"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={senha}
-                onChange={(e) => setSenha(e.target.value)}
-              />
-            </div>
-            {erro && <p className="text-destructive text-sm">{erro}</p>}
-            <Button type="submit" disabled={carregando}>
-              {carregando ? 'Entrando…' : 'Entrar'}
-            </Button>
-            <p className="text-muted-foreground text-center text-sm">
-              Primeira vez aqui?{' '}
-              <Link to="/cadastro" className="text-primary font-medium hover:underline">
-                Criar conta
-              </Link>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
-    </main>
+    <AuthLayout>
+      <div className="mb-8">
+        <div className="bg-primary text-primary-foreground mb-4 flex size-10 items-center justify-center rounded-lg text-sm font-bold lg:hidden">
+          B
+        </div>
+        <h2 className="text-2xl font-bold tracking-tight">Bem-vindo de volta</h2>
+        <p className="text-muted-foreground mt-1.5 text-sm">
+          Entre com seu e-mail institucional para acessar o BEV OS.
+        </p>
+      </div>
+
+      <form onSubmit={entrar} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">E-mail</Label>
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            placeholder="voce@bevilaqua.org.br"
+            autoFocus
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="senha">Senha</Label>
+          <Input
+            id="senha"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
+          />
+        </div>
+        {erro && (
+          <p role="alert" className="text-destructive text-sm">
+            {erro}
+          </p>
+        )}
+        <Button type="submit" disabled={carregando}>
+          {carregando && <Loader2 className="size-4 animate-spin" />}
+          {carregando ? 'Entrando…' : 'Entrar'}
+        </Button>
+        <p className="text-muted-foreground text-center text-sm">
+          Primeira vez aqui?{' '}
+          <Link to="/cadastro" className="text-foreground font-medium underline underline-offset-4">
+            Criar conta
+          </Link>
+        </p>
+      </form>
+    </AuthLayout>
   )
 }

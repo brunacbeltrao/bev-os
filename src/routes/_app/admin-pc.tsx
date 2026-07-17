@@ -61,8 +61,10 @@ function AdminPcPage() {
   return (
     <div className="mx-auto max-w-5xl animate-in fade-in duration-300">
       <header className="mb-6">
-        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <Settings className="text-primary size-6" /> Gestão Institucional
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+            <Settings className="size-4.5" />
+          </span> Gestão Institucional
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
           Área restrita (Pessoas e Cultura / Direx). Configure a empresa para as próximas gestões.
