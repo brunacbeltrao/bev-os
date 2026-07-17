@@ -109,7 +109,8 @@ export function Topbar() {
         {/* Saldo de BevCoins */}
         <Link
           to="/fid"
-          className="flex items-center gap-1.5 bg-yellow-500/10 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-3 py-1.5 rounded-full text-xs font-bold hover:bg-yellow-500/20 transition-all shadow-xs"
+          title="Meu saldo de BevCoins — abrir FID"
+          className="bg-status-warning-bg text-status-warning border-status-warning/25 hover:border-status-warning/50 focus-visible:ring-ring/60 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold tabular-nums shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2"
         >
           <span>🪙</span>
           <span>

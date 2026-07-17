@@ -31,10 +31,10 @@ const OTO_STATUS_LABELS = {
 }
 
 const OTO_STATUS_COLORS = {
-  pendente: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  em_andamento: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  concluido: 'bg-green-500/10 text-green-500 border-green-500/20',
-  cancelado: 'bg-red-500/10 text-red-500 border-red-500/20',
+  pendente: 'bg-status-warning-bg text-status-warning border-status-warning/25',
+  em_andamento: 'bg-status-info-bg text-status-info border-status-info/25',
+  concluido: 'bg-status-success-bg text-status-success border-status-success/25',
+  cancelado: 'bg-status-danger-bg text-status-danger border-status-danger/25',
 }
 
 function DirexResumoPage() {
@@ -106,7 +106,8 @@ function DirexResumoPage() {
   }
 
   const s = summaryQ.data
-  const myInbox = (inboxQ.data ?? []).filter((item) => item.responsavel_id === primary.id)
+  // responsavel_id referencia people.id — usar person_id (primary.id é o id da occupation)
+  const myInbox = (inboxQ.data ?? []).filter((item) => item.responsavel_id === primary.person_id)
   
   // Filtra as subáreas pertencentes apenas a esta diretoria
   const minhasSubareas = (subareasQ.data ?? []).filter(
@@ -164,13 +165,14 @@ function DirexResumoPage() {
       {isDirex && (
         <div className="space-y-6">
           {/* Seletor Segmentado de Visualização para Diretores */}
-          <div className="flex justify-center border-b pb-4">
+          <div className="flex justify-start overflow-x-auto border-b pb-4 md:justify-center">
             <Segmented
               value={activeTab}
               onChange={setActiveTab}
+              className="shrink-0"
               options={[
-                { value: 'inbox', label: 'Inbox (Minhas Pendências)', count: myInbox.length },
-                { value: 'otos', label: 'Objetivos Táticos (OTOs)', count: otosQ.data?.length },
+                { value: 'inbox', label: 'Minhas Pendências', count: myInbox.length },
+                { value: 'otos', label: 'OTOs', count: otosQ.data?.length },
               ]}
             />
           </div>
@@ -278,7 +280,7 @@ function DirexResumoPage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="flex flex-col gap-1.5">
                           <Label htmlFor="oto-subarea">Gerência / Time Responsável</Label>
                           <select

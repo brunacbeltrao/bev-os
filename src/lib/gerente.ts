@@ -48,7 +48,7 @@ export async function getOtos(cycleId: string, subareaId?: string, directorateId
   return data as Oto[]
 }
 
-export async function createOto(oto: Omit<Oto, 'id' | 'created_at'>) {
+export async function createOto(oto: Omit<Oto, 'id' | 'created_at' | 'subarea' | 'directorate'>) {
   const { data, error } = await supabase
     .from('otos')
     .insert([oto])
@@ -59,9 +59,10 @@ export async function createOto(oto: Omit<Oto, 'id' | 'created_at'>) {
 }
 
 export async function updateOtoStatus(id: string, status: Oto['status']) {
+  // updated_at agora é mantido pelo trigger otos_updated_at no banco
   const { data, error } = await supabase
     .from('otos')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status })
     .eq('id', id)
     .select()
     .single()
@@ -84,7 +85,7 @@ export async function getOneOnOnes(cycleId: string, gerenteId?: string) {
   return data as OneOnOne[]
 }
 
-export async function createOneOnOne(oneOnOne: Omit<OneOnOne, 'id' | 'created_at'>) {
+export async function createOneOnOne(oneOnOne: Omit<OneOnOne, 'id' | 'created_at' | 'liderado' | 'gerente'>) {
   const { data, error } = await supabase
     .from('one_on_ones')
     .insert([oneOnOne])

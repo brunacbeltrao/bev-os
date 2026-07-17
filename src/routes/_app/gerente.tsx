@@ -39,10 +39,10 @@ const OTO_STATUS_LABELS = {
 }
 
 const OTO_STATUS_COLORS = {
-  pendente: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  em_andamento: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  concluido: 'bg-green-500/10 text-green-500 border-green-500/20',
-  cancelado: 'bg-red-500/10 text-red-500 border-red-500/20',
+  pendente: 'bg-status-warning-bg text-status-warning border-status-warning/25',
+  em_andamento: 'bg-status-info-bg text-status-info border-status-info/25',
+  concluido: 'bg-status-success-bg text-status-success border-status-success/25',
+  cancelado: 'bg-status-danger-bg text-status-danger border-status-danger/25',
 }
 
 function GerentePainelPage() {
@@ -170,10 +170,13 @@ function GerentePainelPage() {
     return (
       <div className="mx-auto max-w-4xl space-y-6">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight bg-linear-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+            <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+              <Users className="size-4.5" />
+            </span>
             Painel da Gerência
           </h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground mt-1 text-sm">
             Como diretora de <span className="font-semibold">{primary.directorate.nome}</span>, selecione qual gerência deseja visualizar e gerenciar:
           </p>
         </div>
@@ -195,7 +198,7 @@ function GerentePainelPage() {
             {(gerenciasQ.data ?? []).map((g) => (
               <Card
                 key={g.subarea.id}
-                className="hover:border-primary/50 cursor-pointer transition-all hover:shadow-md flex flex-col justify-between"
+                className="hover:border-primary/50 cursor-pointer transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between"
                 onClick={() => {
                   setSelectedSubareaId(g.subarea.id)
                   setSelectedGerenteId(g.people.id)
@@ -239,7 +242,10 @@ function GerentePainelPage() {
               <ArrowLeft className="size-4" /> Voltar para Gerências
             </Button>
           )}
-          <h1 className="text-3xl font-extrabold tracking-tight bg-linear-to-r from-primary to-indigo-500 bg-clip-text text-transparent">
+          <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+            <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
+              <Users className="size-4.5" />
+            </span>
             Painel do Gerente
           </h1>
           <p className="text-muted-foreground text-sm">
@@ -259,13 +265,14 @@ function GerentePainelPage() {
       </header>
 
       {/* Navegação por Abas Segmentadas */}
-      <div className="flex justify-center border-b pb-4">
+      <div className="flex justify-start overflow-x-auto border-b pb-4 md:justify-center">
         <Segmented
           value={tab}
           onChange={setTab}
+          className="shrink-0"
           options={[
             { value: 'liderados', label: 'Meus Liderados', count: assessores.length },
-            { value: 'otos', label: 'Objetivos Táticos (OTOs)', count: otosQ.data?.length },
+            { value: 'otos', label: 'OTOs', count: otosQ.data?.length },
             { value: '1on1s', label: 'Sessões 1:1', count: meetingsQ.data?.length },
           ]}
         />
@@ -307,7 +314,7 @@ function GerentePainelPage() {
                       </div>
                     </div>
                     {l.risco && (
-                      <Badge variant="danger" className="animate-pulse">
+                      <Badge variant="danger">
                         <AlertTriangle className="size-3 mr-1" /> Risco
                       </Badge>
                     )}
@@ -419,7 +426,7 @@ function GerentePainelPage() {
                     }}
                     className="space-y-4 mt-4"
                   >
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="liderado">Membro Liderado</Label>
                         <select
@@ -461,7 +468,7 @@ function GerentePainelPage() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="acoes">Ações Combinadas</Label>
                         <Textarea
@@ -485,7 +492,7 @@ function GerentePainelPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1.5">
                         <Label htmlFor="pretensao">Pretensão de Liderança?</Label>
                         <select

@@ -37,6 +37,8 @@ interface ModuleItem {
   icon: LucideIcon
   to?: string
   href?: string
+  /** módulo ainda não disponível — renderiza desabilitado, sem link morto */
+  soon?: boolean
   /** slugs de subárea em que o módulo aparece (Blueprint §3, itens 7–8) */
   onlyInSubareas?: string[]
   /** módulo exclusivo de lideranças (diretor/gerente/coordenador) */
@@ -63,9 +65,9 @@ const GROUPS: ModuleGroup[] = [
     titulo: 'Operação',
     items: [
       { label: 'Comercial', icon: Handshake, href: 'https://bevilaqua-comercial.lovable.app/' },
-      { label: 'Projetos', icon: Briefcase, href: '#' },
-      { label: 'Institucional', icon: Sparkles, href: 'https://mg.mail.notion.so/c/eJxMkL1u4zoQhZ-G6mSQQ4o_hYp747jcVxCGnHFMQJa0Imkgb79wrN2knG9Occ5Ho3QmgOp4VM4bUINztuM75nlqLdMo3P8C4BsIAKH_EwAkkzRI1HtOujekdR-JsDfRhqvUhpNUz7A7d7cxaFLGWSRLzAQQTUgmDNZyjMpp1-URJFjplFUDBG1P1vtBaQwOpNQYB2Hks8NpWWtel1NZu3m81bqVrzYXARfctr_ftN4FXDYBlzde6o5zT2v__vbe6-BYs4-oLXmZYhiiT1dyzg9XtkEJfVmEPr_mbq3cBNgnwFTzI9fPKS-PXJkOzJTrtOEHTzXXmQ_6BV5BAXZ7FKHPsrtzRcKKh9GyYeLpp89gv6upmIJHklJqr8CDGuLhch_j3haMPNcdV2Fk5Eee8XfD07p_nOLe1fFVv35uLPS58EK_1pqvOeFTzr9_afGItMJ7fyzr2lJaLGnPkUcBw49zavssYOgeI_wJAAD__wOhsKo' },
-      { label: 'Marketing', icon: Megaphone, href: '#' },
+      { label: 'Projetos', icon: Briefcase, soon: true },
+      { label: 'Institucional', icon: Sparkles, soon: true },
+      { label: 'Marketing', icon: Megaphone, soon: true },
     ],
   },
   {
@@ -109,6 +111,21 @@ function NavItem({
   onNavigate?: () => void
 }) {
   const Icon = item.icon
+  if (item.soon) {
+    return (
+      <span
+        aria-disabled="true"
+        title="Em breve"
+        className="text-sidebar-foreground/45 flex cursor-default items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm select-none"
+      >
+        <Icon className="size-4 shrink-0" />
+        <span className="truncate">{item.label}</span>
+        <span className="text-muted-foreground/70 ml-auto rounded-full border border-sidebar-border px-1.5 text-[10px] font-medium">
+          em breve
+        </span>
+      </span>
+    )
+  }
   if (item.href) {
     return (
       <a
