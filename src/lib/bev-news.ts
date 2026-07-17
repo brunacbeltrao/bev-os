@@ -39,7 +39,7 @@ export interface NewsComment {
 export async function getNewsFeed(): Promise<NewsPost[]> {
   const { data, error } = await supabase
     .from('news_posts')
-    .select('*, autor:people(id, nome, foto_url), reactions:news_reactions(person_id), comments:news_comments(*, autor:people(id, nome, foto_url))')
+    .select('*, autor:people!news_posts_autor_id_fkey(id, nome, foto_url), reactions:news_reactions(person_id), comments:news_comments(*, autor:people!news_comments_person_id_fkey(id, nome, foto_url))')
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) throw error

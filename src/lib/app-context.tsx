@@ -6,7 +6,6 @@
  */
 import {
   createContext,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -59,14 +58,6 @@ export function useSupabaseSession(): SessionState {
   return state
 }
 
-// ---------- Seletor de Contexto (Blueprint §2) ----------
-
-export type AppContextSelection =
-  | { kind: 'subarea'; subareaId: string; directorateId: string; label: string }
-  | { kind: 'diretoria'; directorateId: string; label: string } // "Minha Diretoria" (Diretor)
-  | { kind: 'bev'; label: 'Visão Geral BEV' } // só Diretor
-  | { kind: 'direx'; label: 'Direx' } // só Diretor (Gerente vê resumo)
-
 export interface AppState {
   session: Session
   person: Person
@@ -77,10 +68,6 @@ export interface AppState {
   isDirex: boolean
   isLeader: boolean
   souPC: boolean
-  /** Opções disponíveis no seletor, conforme papel. */
-  contextOptions: AppContextSelection[]
-  context: AppContextSelection
-  setContext: (c: AppContextSelection) => void
 }
 
 const Ctx = createContext<AppState | null>(null)
@@ -91,34 +78,7 @@ export function useApp(): AppState {
   return v
 }
 
-const CONTEXT_STORAGE_KEY = 'bevos-context'
-
-function buildContextOptions(occupations: Occupation[]): AppContextSelection[] {
-  const primary = occupations.find((o) => !o.is_hibrido)
-  if (!primary) return []
-
-  if (primary.role === 'diretor') {
-    return [
-      {
-        kind: 'diretoria',
-        directorateId: primary.directorate.id,
-        label: `Minha Área · ${primary.directorate.nome}`,
-      },
-      { kind: 'bev', label: 'Visão Geral BEV' },
-      { kind: 'direx', label: 'Direx' },
-    ]
-  }
-
-  // Gerente/Coordenador: "Minha Área" fixo.
-  // Analista/Assessor: "Minha Área"; se híbrido, alterna entre as duas áreas.
-  const options: AppContextSelection[] = occupations.map((o) => ({
-    kind: 'subarea',
-    subareaId: o.subarea.id,
-    directorateId: o.directorate.id,
-    label: o.is_hibrido ? `${o.subarea.nome} (híbrido)` : `Minha Área · ${o.subarea.nome}`,
-  }))
-  return options
-}
+// A navegação agora é estática baseada no cargo (isLeader, isDirex)
 
 export function AppProvider({
   session,
@@ -139,83 +99,41 @@ export function AppProvider({
     enabled: !!cycleQ.data,
   })
 
-  const [stored, setStored] = useState<string | null>(null)
-  useEffect(() => {
-    setStored(localStorage.getItem(CONTEXT_STORAGE_KEY))
-  }, [])
 
-  const contextOptions = useMemo(
-    () => (occQ.data ? buildContextOptions(occQ.data) : []),
-    [occQ.data],
-  )
+  const value = useMemo<AppState | null>(() => {
+    if (!personQ.data || !cycleQ.data || !occQ.data || occQ.data.length === 0) return null
 
-  const [selected, setSelected] = useState<AppContextSelection | null>(null)
+    const occs = occQ.data
+    const primary = occs.find((o) => !o.is_hibrido) || occs[0]
 
-  const setContext = useCallback((c: AppContextSelection) => {
-    setSelected(c)
-    try {
-      localStorage.setItem(CONTEXT_STORAGE_KEY, c.label)
-    } catch {
-      /* noop */
+    return {
+      session,
+      person: personQ.data,
+      cycle: cycleQ.data,
+      occupations: occs,
+      primary,
+      isDirex: isDirexMember(occs),
+      isLeader: isLeaderMember(occs),
+      souPC: isPcMember(occs),
     }
-  }, [])
+  }, [personQ.data, cycleQ.data, occQ.data, session])
 
-  const context = useMemo(() => {
-    if (selected) return selected
-    const restored = contextOptions.find((o) => o.label === stored)
-    return restored ?? contextOptions[0] ?? null
-  }, [selected, contextOptions, stored])
-
-  if (personQ.isPending || cycleQ.isPending || occQ.isPending) return <>{fallback}</>
-
-  if (personQ.isError || cycleQ.isError || occQ.isError || !personQ.data) {
+  if (personQ.isLoading || cycleQ.isLoading || occQ.isLoading) {
+    return <>{fallback}</>
+  }
+  
+  if (!value) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-8">
-        <div className="max-w-md text-center">
-          <h1 className="text-lg font-semibold">Não foi possível carregar seus dados</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Verifique sua conexão e recarregue a página. Se o problema persistir, fale com
-            Pessoas e Cultura.
-          </p>
-        </div>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+        <p className="text-muted-foreground text-sm">Nenhum vínculo ativo neste ciclo.</p>
+        <button
+          onClick={() => supabase.auth.signOut()}
+          className="text-primary hover:underline text-sm font-medium"
+        >
+          Sair
+        </button>
       </div>
     )
-  }
-
-  const occupations = occQ.data ?? []
-  const primary = occupations.find((o) => !o.is_hibrido)
-
-  if (!primary || !context) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-8">
-        <div className="max-w-md text-center">
-          <h1 className="text-lg font-semibold">Sem vínculo no ciclo vigente</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Sua conta existe, mas não há vínculo de área registrado para o ciclo atual. Fale com
-            Pessoas e Cultura.
-          </p>
-        </div>
-      </div>
-    )
-  }
-
-  // Regras de negócio centralizadas
-  const isDirex = isDirexMember(occupations)
-  const isLeader = isLeaderMember(occupations)
-  const isPc = isPcMember(occupations)
-
-  const value: AppState = {
-    session,
-    person: personQ.data,
-    cycle: cycleQ.data!,
-    occupations,
-    primary,
-    isDirex,
-    isLeader,
-    souPC: isPc,
-    contextOptions,
-    context,
-    setContext,
   }
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

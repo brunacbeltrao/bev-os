@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { SidebarContent } from './sidebar'
-import { ContextSelector } from './context-selector'
 import { GlobalSearch } from './global-search'
 import { ThemeToggle } from './theme-toggle'
 import { useApp } from '@/lib/app-context'
@@ -48,9 +47,6 @@ export function Topbar() {
           className="bg-sidebar flex w-72 flex-col gap-0 overflow-y-auto p-0 pt-10"
         >
           <SheetTitle className="sr-only">Navegação</SheetTitle>
-          <div className="border-sidebar-border border-b px-3 pb-3 sm:hidden">
-            <ContextSelector />
-          </div>
           <SidebarContent onNavigate={() => setMenuAberto(false)} />
         </SheetContent>
       </Sheet>
@@ -64,10 +60,6 @@ export function Topbar() {
         </span>
         <span className="text-sm font-semibold tracking-tight">BEV OS</span>
       </Link>
-
-      <div className="hidden sm:block">
-        <ContextSelector />
-      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
         <GlobalSearch />

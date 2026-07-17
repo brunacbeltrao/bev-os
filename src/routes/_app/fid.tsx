@@ -386,11 +386,19 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
     queryFn: async () => {
       const { data, error } = await supabase
         .from('approved_roster')
-        .select('email, nome, people!inner(id)')
+        .select('email, nome, role, directorates!inner(slug), people!inner(id)')
         .eq('cycle_id', cycleId)
         .order('nome')
       if (error) throw error
-      return data
+      
+      // Filtra apenas membros elegíveis (todos exceto Diretor de Gestão e Diretora de Negócios)
+      return data.filter((m: any) => {
+        const dSlug = m.directorates?.slug || (Array.isArray(m.directorates) ? m.directorates[0]?.slug : null)
+        return !(
+          m.role === 'diretor' &&
+          (dSlug === 'gestao' || dSlug === 'negocios')
+        )
+      })
     },
     enabled: canCredit,
   })
@@ -414,7 +422,7 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
                 <DialogHeader>
                   <DialogTitle>Lançar Crédito Comercial</DialogTitle>
                   <DialogDescription>
-                    Selecione o assessor e digite o valor do contrato fechado. O sistema fará a conversão automática.
+                    Selecione o membro elegível (Assessor, Gerente ou Diretor) e digite o valor do contrato fechado. O sistema fará a conversão automática.
                   </DialogDescription>
                 </DialogHeader>
                 <form
@@ -425,7 +433,7 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
                   className="mt-4 flex flex-col gap-4"
                 >
                   <div className="flex flex-col gap-2">
-                    <Label>Membro (Assessor)</Label>
+                    <Label>Membro Elegível</Label>
                     <select
                       required
                       className="border-input ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"

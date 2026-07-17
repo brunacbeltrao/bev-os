@@ -339,7 +339,7 @@ function PainelInstitucional() {
 }
 
 function HomePage() {
-  const { person, primary, cycle, context } = useApp()
+  const { person, primary, cycle } = useApp()
 
   const hoje = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -355,7 +355,7 @@ function HomePage() {
           {saudacao()}, {firstName(person.nome)}
         </h1>
         <p className="text-muted-foreground mt-1.5 text-sm">
-          {ROLE_LABELS[primary.role]} · {context.label} · Ciclo {cycle.nome}
+          {ROLE_LABELS[primary.role]} · Ciclo {cycle.nome}
         </p>
       </header>
 

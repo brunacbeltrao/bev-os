@@ -23,6 +23,7 @@ import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AppPdiRouteImport } from './routes/_app/pdi'
 import { Route as AppMemoriaRouteImport } from './routes/_app/memoria'
 import { Route as AppLideradosRouteImport } from './routes/_app/liderados'
+import { Route as AppGerenteRouteImport } from './routes/_app/gerente'
 import { Route as AppFrequenciaRouteImport } from './routes/_app/frequencia'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFidRouteImport } from './routes/_app/fid'
@@ -33,12 +34,12 @@ import { Route as AppBevNewsRouteImport } from './routes/_app/bev-news'
 import { Route as AppBenchsRouteImport } from './routes/_app/benchs'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppAdminPcRouteImport } from './routes/_app/admin-pc'
-import { Route as AppDirexIndexRouteImport } from './routes/_app/direx/index'
-import { Route as AppDirexTodoRouteImport } from './routes/_app/direx/todo'
-import { Route as AppDirexProblemasRouteImport } from './routes/_app/direx/problemas'
-import { Route as AppDirexLideradosRouteImport } from './routes/_app/direx/liderados'
-import { Route as AppDirexDecisoesRouteImport } from './routes/_app/direx/decisoes'
-import { Route as AppDirexAtasRouteImport } from './routes/_app/direx/atas'
+import { Route as AppDiretorIndexRouteImport } from './routes/_app/diretor/index'
+import { Route as AppDiretorTodoRouteImport } from './routes/_app/diretor/todo'
+import { Route as AppDiretorProblemasRouteImport } from './routes/_app/diretor/problemas'
+import { Route as AppDiretorLideradosRouteImport } from './routes/_app/diretor/liderados'
+import { Route as AppDiretorDecisoesRouteImport } from './routes/_app/diretor/decisoes'
+import { Route as AppDiretorAtasRouteImport } from './routes/_app/diretor/atas'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -109,6 +110,11 @@ const AppLideradosRoute = AppLideradosRouteImport.update({
   path: '/liderados',
   getParentRoute: () => AppRoute,
 } as any)
+const AppGerenteRoute = AppGerenteRouteImport.update({
+  id: '/gerente',
+  path: '/gerente',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppFrequenciaRoute = AppFrequenciaRouteImport.update({
   id: '/frequencia',
   path: '/frequencia',
@@ -159,34 +165,34 @@ const AppAdminPcRoute = AppAdminPcRouteImport.update({
   path: '/admin-pc',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexIndexRoute = AppDirexIndexRouteImport.update({
-  id: '/direx/',
-  path: '/direx/',
+const AppDiretorIndexRoute = AppDiretorIndexRouteImport.update({
+  id: '/diretor/',
+  path: '/diretor/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexTodoRoute = AppDirexTodoRouteImport.update({
-  id: '/direx/todo',
-  path: '/direx/todo',
+const AppDiretorTodoRoute = AppDiretorTodoRouteImport.update({
+  id: '/diretor/todo',
+  path: '/diretor/todo',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexProblemasRoute = AppDirexProblemasRouteImport.update({
-  id: '/direx/problemas',
-  path: '/direx/problemas',
+const AppDiretorProblemasRoute = AppDiretorProblemasRouteImport.update({
+  id: '/diretor/problemas',
+  path: '/diretor/problemas',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexLideradosRoute = AppDirexLideradosRouteImport.update({
-  id: '/direx/liderados',
-  path: '/direx/liderados',
+const AppDiretorLideradosRoute = AppDiretorLideradosRouteImport.update({
+  id: '/diretor/liderados',
+  path: '/diretor/liderados',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexDecisoesRoute = AppDirexDecisoesRouteImport.update({
-  id: '/direx/decisoes',
-  path: '/direx/decisoes',
+const AppDiretorDecisoesRoute = AppDiretorDecisoesRouteImport.update({
+  id: '/diretor/decisoes',
+  path: '/diretor/decisoes',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDirexAtasRoute = AppDirexAtasRouteImport.update({
-  id: '/direx/atas',
-  path: '/direx/atas',
+const AppDiretorAtasRoute = AppDiretorAtasRouteImport.update({
+  id: '/diretor/atas',
+  path: '/diretor/atas',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
+  '/gerente': typeof AppGerenteRoute
   '/liderados': typeof AppLideradosRoute
   '/memoria': typeof AppMemoriaRoute
   '/pdi': typeof AppPdiRoute
@@ -214,12 +221,12 @@ export interface FileRoutesByFullPath {
   '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
-  '/direx/atas': typeof AppDirexAtasRoute
-  '/direx/decisoes': typeof AppDirexDecisoesRoute
-  '/direx/liderados': typeof AppDirexLideradosRoute
-  '/direx/problemas': typeof AppDirexProblemasRoute
-  '/direx/todo': typeof AppDirexTodoRoute
-  '/direx/': typeof AppDirexIndexRoute
+  '/diretor/atas': typeof AppDiretorAtasRoute
+  '/diretor/decisoes': typeof AppDiretorDecisoesRoute
+  '/diretor/liderados': typeof AppDiretorLideradosRoute
+  '/diretor/problemas': typeof AppDiretorProblemasRoute
+  '/diretor/todo': typeof AppDiretorTodoRoute
+  '/diretor/': typeof AppDiretorIndexRoute
 }
 export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
@@ -234,6 +241,7 @@ export interface FileRoutesByTo {
   '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
+  '/gerente': typeof AppGerenteRoute
   '/liderados': typeof AppLideradosRoute
   '/memoria': typeof AppMemoriaRoute
   '/pdi': typeof AppPdiRoute
@@ -245,12 +253,12 @@ export interface FileRoutesByTo {
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
   '/': typeof AppIndexRoute
-  '/direx/atas': typeof AppDirexAtasRoute
-  '/direx/decisoes': typeof AppDirexDecisoesRoute
-  '/direx/liderados': typeof AppDirexLideradosRoute
-  '/direx/problemas': typeof AppDirexProblemasRoute
-  '/direx/todo': typeof AppDirexTodoRoute
-  '/direx': typeof AppDirexIndexRoute
+  '/diretor/atas': typeof AppDiretorAtasRoute
+  '/diretor/decisoes': typeof AppDiretorDecisoesRoute
+  '/diretor/liderados': typeof AppDiretorLideradosRoute
+  '/diretor/problemas': typeof AppDiretorProblemasRoute
+  '/diretor/todo': typeof AppDiretorTodoRoute
+  '/diretor': typeof AppDiretorIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -267,6 +275,7 @@ export interface FileRoutesById {
   '/_app/fid': typeof AppFidRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/frequencia': typeof AppFrequenciaRoute
+  '/_app/gerente': typeof AppGerenteRoute
   '/_app/liderados': typeof AppLideradosRoute
   '/_app/memoria': typeof AppMemoriaRoute
   '/_app/pdi': typeof AppPdiRoute
@@ -278,12 +287,12 @@ export interface FileRoutesById {
   '/_app/visao-geral': typeof AppVisaoGeralRoute
   '/_app/warnings': typeof AppWarningsRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/direx/atas': typeof AppDirexAtasRoute
-  '/_app/direx/decisoes': typeof AppDirexDecisoesRoute
-  '/_app/direx/liderados': typeof AppDirexLideradosRoute
-  '/_app/direx/problemas': typeof AppDirexProblemasRoute
-  '/_app/direx/todo': typeof AppDirexTodoRoute
-  '/_app/direx/': typeof AppDirexIndexRoute
+  '/_app/diretor/atas': typeof AppDiretorAtasRoute
+  '/_app/diretor/decisoes': typeof AppDiretorDecisoesRoute
+  '/_app/diretor/liderados': typeof AppDiretorLideradosRoute
+  '/_app/diretor/problemas': typeof AppDiretorProblemasRoute
+  '/_app/diretor/todo': typeof AppDiretorTodoRoute
+  '/_app/diretor/': typeof AppDiretorIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -301,6 +310,7 @@ export interface FileRouteTypes {
     | '/fid'
     | '/financeiro'
     | '/frequencia'
+    | '/gerente'
     | '/liderados'
     | '/memoria'
     | '/pdi'
@@ -311,12 +321,12 @@ export interface FileRouteTypes {
     | '/reunioes'
     | '/visao-geral'
     | '/warnings'
-    | '/direx/atas'
-    | '/direx/decisoes'
-    | '/direx/liderados'
-    | '/direx/problemas'
-    | '/direx/todo'
-    | '/direx/'
+    | '/diretor/atas'
+    | '/diretor/decisoes'
+    | '/diretor/liderados'
+    | '/diretor/problemas'
+    | '/diretor/todo'
+    | '/diretor/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/cadastro'
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/fid'
     | '/financeiro'
     | '/frequencia'
+    | '/gerente'
     | '/liderados'
     | '/memoria'
     | '/pdi'
@@ -342,12 +353,12 @@ export interface FileRouteTypes {
     | '/visao-geral'
     | '/warnings'
     | '/'
-    | '/direx/atas'
-    | '/direx/decisoes'
-    | '/direx/liderados'
-    | '/direx/problemas'
-    | '/direx/todo'
-    | '/direx'
+    | '/diretor/atas'
+    | '/diretor/decisoes'
+    | '/diretor/liderados'
+    | '/diretor/problemas'
+    | '/diretor/todo'
+    | '/diretor'
   id:
     | '__root__'
     | '/_app'
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/_app/fid'
     | '/_app/financeiro'
     | '/_app/frequencia'
+    | '/_app/gerente'
     | '/_app/liderados'
     | '/_app/memoria'
     | '/_app/pdi'
@@ -374,12 +386,12 @@ export interface FileRouteTypes {
     | '/_app/visao-geral'
     | '/_app/warnings'
     | '/_app/'
-    | '/_app/direx/atas'
-    | '/_app/direx/decisoes'
-    | '/_app/direx/liderados'
-    | '/_app/direx/problemas'
-    | '/_app/direx/todo'
-    | '/_app/direx/'
+    | '/_app/diretor/atas'
+    | '/_app/diretor/decisoes'
+    | '/_app/diretor/liderados'
+    | '/_app/diretor/problemas'
+    | '/_app/diretor/todo'
+    | '/_app/diretor/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -488,6 +500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppLideradosRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/gerente': {
+      id: '/_app/gerente'
+      path: '/gerente'
+      fullPath: '/gerente'
+      preLoaderRoute: typeof AppGerenteRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/frequencia': {
       id: '/_app/frequencia'
       path: '/frequencia'
@@ -558,46 +577,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminPcRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/': {
-      id: '/_app/direx/'
-      path: '/direx'
-      fullPath: '/direx/'
-      preLoaderRoute: typeof AppDirexIndexRouteImport
+    '/_app/diretor/': {
+      id: '/_app/diretor/'
+      path: '/diretor'
+      fullPath: '/diretor/'
+      preLoaderRoute: typeof AppDiretorIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/todo': {
-      id: '/_app/direx/todo'
-      path: '/direx/todo'
-      fullPath: '/direx/todo'
-      preLoaderRoute: typeof AppDirexTodoRouteImport
+    '/_app/diretor/todo': {
+      id: '/_app/diretor/todo'
+      path: '/diretor/todo'
+      fullPath: '/diretor/todo'
+      preLoaderRoute: typeof AppDiretorTodoRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/problemas': {
-      id: '/_app/direx/problemas'
-      path: '/direx/problemas'
-      fullPath: '/direx/problemas'
-      preLoaderRoute: typeof AppDirexProblemasRouteImport
+    '/_app/diretor/problemas': {
+      id: '/_app/diretor/problemas'
+      path: '/diretor/problemas'
+      fullPath: '/diretor/problemas'
+      preLoaderRoute: typeof AppDiretorProblemasRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/liderados': {
-      id: '/_app/direx/liderados'
-      path: '/direx/liderados'
-      fullPath: '/direx/liderados'
-      preLoaderRoute: typeof AppDirexLideradosRouteImport
+    '/_app/diretor/liderados': {
+      id: '/_app/diretor/liderados'
+      path: '/diretor/liderados'
+      fullPath: '/diretor/liderados'
+      preLoaderRoute: typeof AppDiretorLideradosRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/decisoes': {
-      id: '/_app/direx/decisoes'
-      path: '/direx/decisoes'
-      fullPath: '/direx/decisoes'
-      preLoaderRoute: typeof AppDirexDecisoesRouteImport
+    '/_app/diretor/decisoes': {
+      id: '/_app/diretor/decisoes'
+      path: '/diretor/decisoes'
+      fullPath: '/diretor/decisoes'
+      preLoaderRoute: typeof AppDiretorDecisoesRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/direx/atas': {
-      id: '/_app/direx/atas'
-      path: '/direx/atas'
-      fullPath: '/direx/atas'
-      preLoaderRoute: typeof AppDirexAtasRouteImport
+    '/_app/diretor/atas': {
+      id: '/_app/diretor/atas'
+      path: '/diretor/atas'
+      fullPath: '/diretor/atas'
+      preLoaderRoute: typeof AppDiretorAtasRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -614,6 +633,7 @@ interface AppRouteChildren {
   AppFidRoute: typeof AppFidRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppFrequenciaRoute: typeof AppFrequenciaRoute
+  AppGerenteRoute: typeof AppGerenteRoute
   AppLideradosRoute: typeof AppLideradosRoute
   AppMemoriaRoute: typeof AppMemoriaRoute
   AppPdiRoute: typeof AppPdiRoute
@@ -625,12 +645,12 @@ interface AppRouteChildren {
   AppVisaoGeralRoute: typeof AppVisaoGeralRoute
   AppWarningsRoute: typeof AppWarningsRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppDirexAtasRoute: typeof AppDirexAtasRoute
-  AppDirexDecisoesRoute: typeof AppDirexDecisoesRoute
-  AppDirexLideradosRoute: typeof AppDirexLideradosRoute
-  AppDirexProblemasRoute: typeof AppDirexProblemasRoute
-  AppDirexTodoRoute: typeof AppDirexTodoRoute
-  AppDirexIndexRoute: typeof AppDirexIndexRoute
+  AppDiretorAtasRoute: typeof AppDiretorAtasRoute
+  AppDiretorDecisoesRoute: typeof AppDiretorDecisoesRoute
+  AppDiretorLideradosRoute: typeof AppDiretorLideradosRoute
+  AppDiretorProblemasRoute: typeof AppDiretorProblemasRoute
+  AppDiretorTodoRoute: typeof AppDiretorTodoRoute
+  AppDiretorIndexRoute: typeof AppDiretorIndexRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -644,6 +664,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppFidRoute: AppFidRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppFrequenciaRoute: AppFrequenciaRoute,
+  AppGerenteRoute: AppGerenteRoute,
   AppLideradosRoute: AppLideradosRoute,
   AppMemoriaRoute: AppMemoriaRoute,
   AppPdiRoute: AppPdiRoute,
@@ -655,12 +676,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppVisaoGeralRoute: AppVisaoGeralRoute,
   AppWarningsRoute: AppWarningsRoute,
   AppIndexRoute: AppIndexRoute,
-  AppDirexAtasRoute: AppDirexAtasRoute,
-  AppDirexDecisoesRoute: AppDirexDecisoesRoute,
-  AppDirexLideradosRoute: AppDirexLideradosRoute,
-  AppDirexProblemasRoute: AppDirexProblemasRoute,
-  AppDirexTodoRoute: AppDirexTodoRoute,
-  AppDirexIndexRoute: AppDirexIndexRoute,
+  AppDiretorAtasRoute: AppDiretorAtasRoute,
+  AppDiretorDecisoesRoute: AppDiretorDecisoesRoute,
+  AppDiretorLideradosRoute: AppDiretorLideradosRoute,
+  AppDiretorProblemasRoute: AppDiretorProblemasRoute,
+  AppDiretorTodoRoute: AppDiretorTodoRoute,
+  AppDiretorIndexRoute: AppDiretorIndexRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

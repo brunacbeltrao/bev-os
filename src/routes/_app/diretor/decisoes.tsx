@@ -16,7 +16,7 @@ import { useApp } from '@/lib/app-context'
 import { createDirexDecision, getDirexDecisions } from '@/lib/direx'
 import { fmtDate } from '@/lib/use-context-scope'
 
-export const Route = createFileRoute('/_app/direx/decisoes')({ component: DirexDecisoesPage })
+export const Route = createFileRoute('/_app/diretor/decisoes')({ component: DirexDecisoesPage })
 
 function DirexDecisoesPage() {
   const { isDirex, person, cycle } = useApp()

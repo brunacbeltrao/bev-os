@@ -62,7 +62,7 @@ function BenchDetail({ bench }: { bench: Bench }) {
 }
 
 function BenchsPage() {
-  const { person, cycle, context } = useApp()
+  const { person, cycle } = useApp()
   const { subareaIds, scopeSubareas } = useContextScope()
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -116,7 +116,7 @@ function BenchsPage() {
             Benchs
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Benchmarks com outras EJs e profissionais · {context.label}
+            Benchmarks com outras EJs e profissionais
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

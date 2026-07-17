@@ -32,21 +32,14 @@ export interface ContextScope {
 }
 
 export function useContextScope(): ContextScope {
-  const { context, occupations } = useApp()
+  const { occupations } = useApp()
   const subareasQ = useAllSubareas()
   const all = subareasQ.data ?? []
+  
+  const scopeSubareas = all
 
-  const scopeSubareas =
-    context.kind === 'subarea'
-      ? all.filter((s) => s.id === context.subareaId)
-      : context.kind === 'diretoria'
-        ? all.filter((s) => s.directorate_id === context.directorateId)
-        : all
-
-  const subareaIds =
-    context.kind === 'subarea' || context.kind === 'diretoria'
-      ? scopeSubareas.map((s) => s.id)
-      : null
+  // Retorna null para sinalizar "escopo global / o que o RLS permitir ver"
+  const subareaIds: string[] | null = null
 
   function leadsSubarea(subareaId: string): boolean {
     const sub = all.find((s) => s.id === subareaId)

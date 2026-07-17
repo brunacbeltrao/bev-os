@@ -1,58 +1,55 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckSquare, ArrowRight, ArrowLeft, Clock, Plus } from 'lucide-react'
+import { AlertTriangle, ArrowRight, ArrowLeft, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApp } from '@/lib/app-context'
-import { getDirexTarefas, updateTarefaStatus, createDirexTarefa } from '@/lib/direx'
-import type { DirexTarefa } from '@/lib/direx'
-import { fmtDate } from '@/lib/use-context-scope'
+import { getDirexProblemas, updateProblemaStatus, createDirexProblema } from '@/lib/direx'
+import type { DirexProblema } from '@/lib/direx'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { useState } from 'react'
 
-export const Route = createFileRoute('/_app/direx/todo')({
-  component: DirexTodoPage,
+export const Route = createFileRoute('/_app/diretor/problemas')({
+  component: DirexProblemasPage,
 })
 
-const COLUNAS = ['não iniciado', 'em andamento', 'concluído']
+const COLUNAS = ['novo', 'em análise', 'em andamento', 'resolvido']
 
-function DirexTodoPage() {
+function DirexProblemasPage() {
   const { isDirex, cycle, person } = useApp()
   const queryClient = useQueryClient()
 
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [titulo, setTitulo] = useState('')
-  const [prioridade, setPrioridade] = useState('normal')
-  const [prazo, setPrazo] = useState('')
+  const [descricao, setDescricao] = useState('')
+  const [urgencia, setUrgencia] = useState('média')
 
-  const { data: tarefas = [], isPending } = useQuery({
-    queryKey: ['direx-tarefas', cycle.id],
-    queryFn: () => getDirexTarefas(cycle.id),
+  const { data: problemas = [], isPending } = useQuery({
+    queryKey: ['direx-problemas', cycle.id],
+    queryFn: () => getDirexProblemas(cycle.id),
     enabled: isDirex,
   })
 
   const moveMutation = useMutation({
-    mutationFn: ({ id, novoStatus }: { id: string; novoStatus: string }) =>
-      updateTarefaStatus(id, novoStatus),
+    mutationFn: ({ id, novaColuna }: { id: string; novaColuna: string }) =>
+      updateProblemaStatus(id, novaColuna),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['direx-tarefas'] })
+      queryClient.invalidateQueries({ queryKey: ['direx-problemas'] })
       queryClient.invalidateQueries({ queryKey: ['direx-inbox'] })
     },
   })
 
   const createMut = useMutation({
-    mutationFn: () => createDirexTarefa(titulo, prioridade, prazo || null, person.id),
+    mutationFn: () => createDirexProblema(descricao, urgencia, null, person.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['direx-tarefas'] })
+      queryClient.invalidateQueries({ queryKey: ['direx-problemas'] })
       queryClient.invalidateQueries({ queryKey: ['direx-inbox'] })
       setDialogOpen(false)
-      setTitulo('')
-      setPrioridade('normal')
-      setPrazo('')
+      setDescricao('')
+      setUrgencia('média')
     },
   })
 
@@ -61,7 +58,7 @@ function DirexTodoPage() {
       <div className="mx-auto max-w-lg pt-16 text-center">
         <h1 className="text-lg font-semibold">Acesso restrito</h1>
         <p className="text-muted-foreground mt-2 text-sm">
-          A Gestão de Tarefas é restrita à Diretoria Executiva.
+          A Gestão de Problemas é restrita à Diretoria Executiva.
         </p>
       </div>
     )
@@ -69,7 +66,7 @@ function DirexTodoPage() {
 
   const grouped = COLUNAS.map((coluna) => ({
     titulo: coluna,
-    items: tarefas.filter((t) => t.status === coluna),
+    items: problemas.filter((p) => p.coluna_kanban === coluna),
   }))
 
   return (
@@ -78,68 +75,57 @@ function DirexTodoPage() {
         <div>
           <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
           <span className="bg-accent text-accent-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-            <CheckSquare className="size-4.5" />
+            <AlertTriangle className="size-4.5" />
           </span>
-            To do
+            Gestão de Problemas
           </h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Acompanhamento das tarefas e planos de ação da Diretoria Executiva.
+            Acompanhamento estruturado de situações críticas e aprendizados da gestão.
           </p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
               <Plus className="size-4" />
-              Nova Tarefa
+              Reportar Problema
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cadastrar Nova Tarefa</DialogTitle>
+              <DialogTitle>Reportar Novo Problema</DialogTitle>
             </DialogHeader>
             <form
               className="flex flex-col gap-4 mt-2"
               onSubmit={(e) => {
                 e.preventDefault()
-                if (titulo.trim()) createMut.mutate()
+                if (descricao.trim()) createMut.mutate()
               }}
             >
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="t-titulo">Título / Descrição</Label>
+                <Label htmlFor="p-desc">Problema / Situação (seja sucinto)</Label>
                 <Input
-                  id="t-titulo"
+                  id="p-desc"
                   required
-                  placeholder="ex: Avaliar fornecedores de TI"
-                  value={titulo}
-                  onChange={(e) => setTitulo(e.target.value)}
+                  placeholder="ex: Furo no fluxo de caixa no projeto X"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="t-prio">Prioridade</Label>
-                  <select
-                    id="t-prio"
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                    value={prioridade}
-                    onChange={(e) => setPrioridade(e.target.value)}
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="média">Média</option>
-                    <option value="alta">Alta</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="t-prazo">Prazo Estimado</Label>
-                  <Input
-                    id="t-prazo"
-                    type="date"
-                    value={prazo}
-                    onChange={(e) => setPrazo(e.target.value)}
-                  />
-                </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="p-urgencia">Urgência</Label>
+                <select
+                  id="p-urgencia"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  value={urgencia}
+                  onChange={(e) => setUrgencia(e.target.value)}
+                >
+                  <option value="baixa">Baixa</option>
+                  <option value="média">Média</option>
+                  <option value="alta">Alta</option>
+                </select>
               </div>
               <Button type="submit" disabled={createMut.isPending} className="mt-2">
-                {createMut.isPending ? 'Salvando…' : 'Criar Tarefa'}
+                {createMut.isPending ? 'Salvando…' : 'Adicionar ao Kanban'}
               </Button>
             </form>
           </DialogContent>
@@ -148,7 +134,7 @@ function DirexTodoPage() {
 
       {isPending ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
-          {[1, 2, 3].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="w-80 shrink-0">
               <Skeleton className="h-[400px] w-full" />
             </div>
@@ -171,19 +157,19 @@ function DirexTodoPage() {
                     Nenhum item
                   </div>
                 ) : (
-                  col.items.map((t) => (
-                    <TarefaCard
-                      key={t.id}
-                      tarefa={t}
+                  col.items.map((p) => (
+                    <ProblemaCard
+                      key={p.id}
+                      problema={p}
                       onMove={(dir) => {
                         const nova = COLUNAS[cIdx + dir]
                         if (nova) {
-                          moveMutation.mutate({ id: t.id, novoStatus: nova })
+                          moveMutation.mutate({ id: p.id, novaColuna: nova })
                         }
                       }}
                       canMoveLeft={cIdx > 0}
                       canMoveRight={cIdx < COLUNAS.length - 1}
-                      isMoving={moveMutation.isPending && moveMutation.variables?.id === t.id}
+                      isMoving={moveMutation.isPending && moveMutation.variables?.id === p.id}
                     />
                   ))
                 )}
@@ -196,14 +182,14 @@ function DirexTodoPage() {
   )
 }
 
-function TarefaCard({
-  tarefa,
+function ProblemaCard({
+  problema,
   onMove,
   canMoveLeft,
   canMoveRight,
   isMoving,
 }: {
-  tarefa: DirexTarefa
+  problema: DirexProblema
   onMove: (dir: number) => void
   canMoveLeft: boolean
   canMoveRight: boolean
@@ -216,29 +202,26 @@ function TarefaCard({
           <Badge
             variant="outline"
             className={`text-[10px] ${
-              tarefa.prioridade === 'alta'
+              problema.urgencia === 'alta'
                 ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-900/30 dark:text-red-400'
-                : tarefa.prioridade === 'média'
+                : problema.urgencia === 'média'
                   ? 'border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-400'
                   : 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-900/30 dark:text-green-400'
             }`}
           >
-            {tarefa.prioridade}
+            {problema.urgencia}
           </Badge>
-          {tarefa.prazo && (
-            <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-medium">
-              <Clock className="size-3" /> {fmtDate(tarefa.prazo)}
-            </span>
-          )}
         </div>
-        <CardTitle className="mt-1.5 text-sm leading-snug">{tarefa.titulo}</CardTitle>
+        <CardTitle className="mt-1.5 text-sm leading-snug">{problema.descricao}</CardTitle>
       </CardHeader>
       <CardContent className="p-3 pt-0 text-xs text-muted-foreground">
+        {problema.impacto && <p className="mb-2 line-clamp-2">{problema.impacto}</p>}
+        {/* Placeholder para Diretoria */}
         <div className="flex items-center gap-2 mt-2 text-[11px]">
-           <div className="size-5 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold">
-             {tarefa.responsavel_id ? 'DI' : '—'}
-           </div>
-           <span>{tarefa.responsavel_id ? 'Responsável Atribuído' : 'Sem Responsável'}</span>
+          <div className="size-5 rounded bg-muted flex items-center justify-center text-[9px] font-bold">
+            {problema.diretoria_id ? 'DR' : '—'}
+          </div>
+          <span>{problema.diretoria_id ? 'Diretoria Atribuída' : 'Sem Diretoria'}</span>
         </div>
       </CardContent>
       <CardFooter className="flex items-center justify-between p-2 bg-muted/20 border-t">
@@ -252,7 +235,7 @@ function TarefaCard({
           <ArrowLeft className="size-3" />
         </Button>
         <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          {tarefa.origem_tipo ? `Origem: ${tarefa.origem_tipo}` : 'Ação Avulsa'}
+          {problema.decisao_id ? 'Possui Decisão' : 'Aberto'}
         </span>
         <Button
           variant="ghost"

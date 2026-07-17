@@ -28,12 +28,12 @@ export const Route = createFileRoute('/_app/pessoas')({
 })
 
 function PessoasPage() {
-  const { cycle, context } = useApp()
+  const { cycle } = useApp()
   const { q } = Route.useSearch()
   const [filtro, setFiltro] = useState(q ?? '')
 
-  const subareaId = context.kind === 'subarea' ? context.subareaId : null
-  const directorateId = context.kind === 'diretoria' ? context.directorateId : null
+  const subareaId = null
+  const directorateId = null
 
   const dirQ = useQuery({
     queryKey: ['directory', cycle.id, subareaId],
@@ -55,10 +55,7 @@ function PessoasPage() {
     return list
   }, [dirQ.data, directorateId, filtro])
 
-  const escopo =
-    context.kind === 'subarea' || context.kind === 'diretoria'
-      ? context.label
-      : 'BEV inteiro'
+  const escopo = 'BEV inteiro'
 
   return (
     <div className="mx-auto max-w-4xl">

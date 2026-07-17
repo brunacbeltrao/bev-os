@@ -17,7 +17,6 @@ import {
   Flag,
   Handshake,
   Home,
-  Landmark,
   Megaphone,
   Newspaper,
   ShieldCheck,
@@ -144,22 +143,13 @@ function NavItem({
 }
 
 function AreaNav({ onNavigate }: { onNavigate?: () => void }) {
-  const { isLeader, isDirex, occupations } = useApp()
+  const { isLeader, isDirex } = useApp()
   const location = useLocation()
-
-  function visible(m: ModuleItem): boolean {
-    if (m.onlyLeaders && !isLeader) return false
-    if (m.onlyInSubareas) {
-      const pertence = occupations.some((o) => m.onlyInSubareas!.includes(o.subarea.slug))
-      if (!pertence && !isDirex) return false
-    }
-    return true
-  }
 
   return (
     <nav className="flex flex-col gap-3 p-2">
       {GROUPS.map((g) => {
-        const items = g.items.filter(visible)
+        const items = g.items.filter((m) => !(m.onlyLeaders && !isLeader))
         if (items.length === 0) return null
         return (
           <div key={g.titulo ?? 'root'} className="flex flex-col gap-0.5">
@@ -179,41 +169,32 @@ function AreaNav({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         )
       })}
-    </nav>
-  )
-}
-
-const DIREX_ITEMS = (cycleName: string): Array<{ label: string; to: string; gerenteVe: boolean }> => [
-  { label: 'Resumo (Inbox)', to: '/direx', gerenteVe: true },
-  { label: 'To do', to: '/direx/todo', gerenteVe: false },
-  { label: 'Reuniões de Diretoria', to: '/direx/atas', gerenteVe: false },
-  { label: 'Problemas', to: '/direx/problemas', gerenteVe: false },
-  { label: `P.E ${cycleName}`, to: '/direx/planejamento', gerenteVe: false },
-]
-
-function DirexNav({ onNavigate }: { onNavigate?: () => void }) {
-  const { isDirex, cycle } = useApp()
-  const location = useLocation()
-  return (
-    <nav className="flex flex-col gap-0.5 p-2">
-      <div className="text-muted-foreground px-2.5 py-1.5 text-xs font-semibold uppercase tracking-wide">
-        Direx
-      </div>
-      {DIREX_ITEMS(cycle.nome).filter((i) => isDirex || i.gerenteVe).map((i) => (
-        <Link
-          key={i.label}
-          to={i.to}
-          onClick={onNavigate}
-          className={cn(
-            'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/60 flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2',
-            location.pathname === i.to &&
-              'bg-sidebar-accent text-sidebar-accent-foreground font-medium',
+      
+      {/* Nova Área de Liderança (Gerente / Diretor) */}
+      {(isLeader || isDirex) && (
+        <div className="flex flex-col gap-1">
+          <Separator className="bg-border/60 my-2" />
+          <div className="text-muted-foreground px-2 text-xs font-semibold uppercase tracking-wider">
+            Liderança
+          </div>
+          
+          {isLeader && (
+            <NavItem
+              item={{ label: 'Painel da Gerência', icon: Target, to: '/gerente' }}
+              active={location.pathname === '/gerente'}
+              onNavigate={onNavigate}
+            />
           )}
-        >
-          <Landmark className="size-4 shrink-0" />
-          <span className="truncate">{i.label}</span>
-        </Link>
-      ))}
+
+          {isDirex && (
+            <NavItem
+              item={{ label: 'Painel da Diretoria', icon: Compass, to: '/diretor' }}
+              active={location.pathname === '/diretor'}
+              onNavigate={onNavigate}
+            />
+          )}
+        </div>
+      )}
     </nav>
   )
 }
@@ -221,11 +202,10 @@ function DirexNav({ onNavigate }: { onNavigate?: () => void }) {
 /** Conteúdo da sidebar — usado no <aside> fixo (desktop) e no drawer (mobile). */
 export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation()
-  const isDirexPage = location.pathname.startsWith('/direx')
 
   return (
     <>
-      {isDirexPage ? <DirexNav onNavigate={onNavigate} /> : <AreaNav onNavigate={onNavigate} />}
+      <AreaNav onNavigate={onNavigate} />
       <div className="mt-auto flex flex-col gap-3 p-3">
         {location.pathname !== '/admin-pc' && (
           <Link

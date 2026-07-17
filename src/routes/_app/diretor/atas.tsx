@@ -24,7 +24,7 @@ import { useApp } from '@/lib/app-context'
 import { createDirexMinute, getDirexMinutes, updateDirexMinute } from '@/lib/direx'
 import { fmtDate } from '@/lib/use-context-scope'
 
-export const Route = createFileRoute('/_app/direx/atas')({ component: DirexReunioesPage })
+export const Route = createFileRoute('/_app/diretor/atas')({ component: DirexReunioesPage })
 
 function DirexReunioesPage() {
   const { isDirex, person, cycle } = useApp()
