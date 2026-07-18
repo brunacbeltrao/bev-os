@@ -220,7 +220,11 @@ create index idx_certificates_user on public.certificates(user_id);
 -- ============================================================
 
 -- ---------- Helper de Admin do BevSkills ----------
--- Usaremos Pessoas e Cultura (ou Direx) como admins
+-- Admin = Direx (diretor no ciclo vigente) OU liderança (gerente/
+-- coordenador) de Pessoas & Cultura. Versão AUTOSSUFICIENTE: usa
+-- direto as tabelas base (occupations/subareas/cycles) para não
+-- depender de public.is_direx()/is_leader_of(), que podem não existir
+-- neste banco. Equivale a: is_direx(uid) OR is_leader_of(uid, P&C).
 create or replace function public.is_bevskills_admin(uid uuid)
 returns boolean
 language sql
@@ -228,7 +232,17 @@ security definer
 set search_path = public
 stable
 as $$
-  select public.is_direx(uid) or public.is_leader_of(uid, (select id from public.subareas where slug = 'pessoas_cultura'));
+  select exists (
+    select 1
+    from public.occupations o
+    join public.cycles cy on cy.id = o.cycle_id and cy.is_current = true
+    left join public.subareas sa on sa.id = o.subarea_id
+    where o.person_id = uid
+      and (
+        o.role = 'diretor'
+        or (o.role in ('gerente', 'coordenador') and sa.slug = 'pessoas_cultura')
+      )
+  );
 $$;
 
 grant execute on function public.is_bevskills_admin(uuid) to authenticated, service_role;
