@@ -13,3 +13,6 @@ __unconfig*
 todos.json
 .vercel
 .env*
+
+# lixo de mounts FUSE (arquivos abertos e apagados)
+.fuse_hidden*

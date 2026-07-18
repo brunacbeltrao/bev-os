@@ -15,6 +15,7 @@ import {
   Coins,
   Compass,
   Flag,
+  GraduationCap,
   Handshake,
   Home,
   Megaphone,
@@ -97,7 +98,10 @@ const GROUPS: ModuleGroup[] = [
   },
   {
     titulo: 'Conhecimento',
-    items: [{ label: 'Memória Institucional', icon: BookOpen, to: '/memoria' }],
+    items: [
+      { label: 'BevSkills', icon: GraduationCap, to: '/bevskills' },
+      { label: 'Memória Institucional', icon: BookOpen, to: '/memoria' },
+    ],
   },
 ]
 
