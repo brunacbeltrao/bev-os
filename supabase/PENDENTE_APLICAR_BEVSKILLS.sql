@@ -27,6 +27,18 @@ begin
   end if;
 end $$;
 
+-- ---------- Dependência: garante a função de updated_at ----------
+-- (o banco de produção pode não ter esta função; create or replace é seguro)
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 
 
 
