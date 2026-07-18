@@ -35,17 +35,11 @@ import { Route as AppBenchsRouteImport } from './routes/_app/benchs'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppAdminPcRouteImport } from './routes/_app/admin-pc'
 import { Route as AppDiretorIndexRouteImport } from './routes/_app/diretor/index'
-import { Route as AppBevskillsIndexRouteImport } from './routes/_app/bevskills/index'
 import { Route as AppDiretorTodoRouteImport } from './routes/_app/diretor/todo'
 import { Route as AppDiretorProblemasRouteImport } from './routes/_app/diretor/problemas'
 import { Route as AppDiretorLideradosRouteImport } from './routes/_app/diretor/liderados'
 import { Route as AppDiretorDecisoesRouteImport } from './routes/_app/diretor/decisoes'
 import { Route as AppDiretorAtasRouteImport } from './routes/_app/diretor/atas'
-import { Route as AppBevskillsCertificadosRouteImport } from './routes/_app/bevskills/certificados'
-import { Route as AppBevskillsAdminRouteImport } from './routes/_app/bevskills/admin'
-import { Route as AppBevskillsTrilhaSlugRouteImport } from './routes/_app/bevskills/trilha/$slug'
-import { Route as AppBevskillsCursoSlugRouteImport } from './routes/_app/bevskills/curso/$slug'
-import { Route as AppBevskillsAulaIdRouteImport } from './routes/_app/bevskills/aula/$id'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -176,11 +170,6 @@ const AppDiretorIndexRoute = AppDiretorIndexRouteImport.update({
   path: '/diretor/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppBevskillsIndexRoute = AppBevskillsIndexRouteImport.update({
-  id: '/bevskills/',
-  path: '/bevskills/',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppDiretorTodoRoute = AppDiretorTodoRouteImport.update({
   id: '/diretor/todo',
   path: '/diretor/todo',
@@ -204,32 +193,6 @@ const AppDiretorDecisoesRoute = AppDiretorDecisoesRouteImport.update({
 const AppDiretorAtasRoute = AppDiretorAtasRouteImport.update({
   id: '/diretor/atas',
   path: '/diretor/atas',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppBevskillsCertificadosRoute =
-  AppBevskillsCertificadosRouteImport.update({
-    id: '/bevskills/certificados',
-    path: '/bevskills/certificados',
-    getParentRoute: () => AppRoute,
-  } as any)
-const AppBevskillsAdminRoute = AppBevskillsAdminRouteImport.update({
-  id: '/bevskills/admin',
-  path: '/bevskills/admin',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppBevskillsTrilhaSlugRoute = AppBevskillsTrilhaSlugRouteImport.update({
-  id: '/bevskills/trilha/$slug',
-  path: '/bevskills/trilha/$slug',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppBevskillsCursoSlugRoute = AppBevskillsCursoSlugRouteImport.update({
-  id: '/bevskills/curso/$slug',
-  path: '/bevskills/curso/$slug',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppBevskillsAulaIdRoute = AppBevskillsAulaIdRouteImport.update({
-  id: '/bevskills/aula/$id',
-  path: '/bevskills/aula/$id',
   getParentRoute: () => AppRoute,
 } as any)
 
@@ -258,18 +221,12 @@ export interface FileRoutesByFullPath {
   '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
-  '/bevskills/admin': typeof AppBevskillsAdminRoute
-  '/bevskills/certificados': typeof AppBevskillsCertificadosRoute
   '/diretor/atas': typeof AppDiretorAtasRoute
   '/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/diretor/liderados': typeof AppDiretorLideradosRoute
   '/diretor/problemas': typeof AppDiretorProblemasRoute
   '/diretor/todo': typeof AppDiretorTodoRoute
-  '/bevskills/': typeof AppBevskillsIndexRoute
   '/diretor/': typeof AppDiretorIndexRoute
-  '/bevskills/aula/$id': typeof AppBevskillsAulaIdRoute
-  '/bevskills/curso/$slug': typeof AppBevskillsCursoSlugRoute
-  '/bevskills/trilha/$slug': typeof AppBevskillsTrilhaSlugRoute
 }
 export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
@@ -296,18 +253,12 @@ export interface FileRoutesByTo {
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
   '/': typeof AppIndexRoute
-  '/bevskills/admin': typeof AppBevskillsAdminRoute
-  '/bevskills/certificados': typeof AppBevskillsCertificadosRoute
   '/diretor/atas': typeof AppDiretorAtasRoute
   '/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/diretor/liderados': typeof AppDiretorLideradosRoute
   '/diretor/problemas': typeof AppDiretorProblemasRoute
   '/diretor/todo': typeof AppDiretorTodoRoute
-  '/bevskills': typeof AppBevskillsIndexRoute
   '/diretor': typeof AppDiretorIndexRoute
-  '/bevskills/aula/$id': typeof AppBevskillsAulaIdRoute
-  '/bevskills/curso/$slug': typeof AppBevskillsCursoSlugRoute
-  '/bevskills/trilha/$slug': typeof AppBevskillsTrilhaSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -336,18 +287,12 @@ export interface FileRoutesById {
   '/_app/visao-geral': typeof AppVisaoGeralRoute
   '/_app/warnings': typeof AppWarningsRoute
   '/_app/': typeof AppIndexRoute
-  '/_app/bevskills/admin': typeof AppBevskillsAdminRoute
-  '/_app/bevskills/certificados': typeof AppBevskillsCertificadosRoute
   '/_app/diretor/atas': typeof AppDiretorAtasRoute
   '/_app/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/_app/diretor/liderados': typeof AppDiretorLideradosRoute
   '/_app/diretor/problemas': typeof AppDiretorProblemasRoute
   '/_app/diretor/todo': typeof AppDiretorTodoRoute
-  '/_app/bevskills/': typeof AppBevskillsIndexRoute
   '/_app/diretor/': typeof AppDiretorIndexRoute
-  '/_app/bevskills/aula/$id': typeof AppBevskillsAulaIdRoute
-  '/_app/bevskills/curso/$slug': typeof AppBevskillsCursoSlugRoute
-  '/_app/bevskills/trilha/$slug': typeof AppBevskillsTrilhaSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -376,18 +321,12 @@ export interface FileRouteTypes {
     | '/reunioes'
     | '/visao-geral'
     | '/warnings'
-    | '/bevskills/admin'
-    | '/bevskills/certificados'
     | '/diretor/atas'
     | '/diretor/decisoes'
     | '/diretor/liderados'
     | '/diretor/problemas'
     | '/diretor/todo'
-    | '/bevskills/'
     | '/diretor/'
-    | '/bevskills/aula/$id'
-    | '/bevskills/curso/$slug'
-    | '/bevskills/trilha/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/cadastro'
@@ -414,18 +353,12 @@ export interface FileRouteTypes {
     | '/visao-geral'
     | '/warnings'
     | '/'
-    | '/bevskills/admin'
-    | '/bevskills/certificados'
     | '/diretor/atas'
     | '/diretor/decisoes'
     | '/diretor/liderados'
     | '/diretor/problemas'
     | '/diretor/todo'
-    | '/bevskills'
     | '/diretor'
-    | '/bevskills/aula/$id'
-    | '/bevskills/curso/$slug'
-    | '/bevskills/trilha/$slug'
   id:
     | '__root__'
     | '/_app'
@@ -453,18 +386,12 @@ export interface FileRouteTypes {
     | '/_app/visao-geral'
     | '/_app/warnings'
     | '/_app/'
-    | '/_app/bevskills/admin'
-    | '/_app/bevskills/certificados'
     | '/_app/diretor/atas'
     | '/_app/diretor/decisoes'
     | '/_app/diretor/liderados'
     | '/_app/diretor/problemas'
     | '/_app/diretor/todo'
-    | '/_app/bevskills/'
     | '/_app/diretor/'
-    | '/_app/bevskills/aula/$id'
-    | '/_app/bevskills/curso/$slug'
-    | '/_app/bevskills/trilha/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -657,13 +584,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDiretorIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/bevskills/': {
-      id: '/_app/bevskills/'
-      path: '/bevskills'
-      fullPath: '/bevskills/'
-      preLoaderRoute: typeof AppBevskillsIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/diretor/todo': {
       id: '/_app/diretor/todo'
       path: '/diretor/todo'
@@ -699,41 +619,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDiretorAtasRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/bevskills/certificados': {
-      id: '/_app/bevskills/certificados'
-      path: '/bevskills/certificados'
-      fullPath: '/bevskills/certificados'
-      preLoaderRoute: typeof AppBevskillsCertificadosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/bevskills/admin': {
-      id: '/_app/bevskills/admin'
-      path: '/bevskills/admin'
-      fullPath: '/bevskills/admin'
-      preLoaderRoute: typeof AppBevskillsAdminRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/bevskills/trilha/$slug': {
-      id: '/_app/bevskills/trilha/$slug'
-      path: '/bevskills/trilha/$slug'
-      fullPath: '/bevskills/trilha/$slug'
-      preLoaderRoute: typeof AppBevskillsTrilhaSlugRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/bevskills/curso/$slug': {
-      id: '/_app/bevskills/curso/$slug'
-      path: '/bevskills/curso/$slug'
-      fullPath: '/bevskills/curso/$slug'
-      preLoaderRoute: typeof AppBevskillsCursoSlugRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/bevskills/aula/$id': {
-      id: '/_app/bevskills/aula/$id'
-      path: '/bevskills/aula/$id'
-      fullPath: '/bevskills/aula/$id'
-      preLoaderRoute: typeof AppBevskillsAulaIdRouteImport
-      parentRoute: typeof AppRoute
-    }
   }
 }
 
@@ -760,18 +645,12 @@ interface AppRouteChildren {
   AppVisaoGeralRoute: typeof AppVisaoGeralRoute
   AppWarningsRoute: typeof AppWarningsRoute
   AppIndexRoute: typeof AppIndexRoute
-  AppBevskillsAdminRoute: typeof AppBevskillsAdminRoute
-  AppBevskillsCertificadosRoute: typeof AppBevskillsCertificadosRoute
   AppDiretorAtasRoute: typeof AppDiretorAtasRoute
   AppDiretorDecisoesRoute: typeof AppDiretorDecisoesRoute
   AppDiretorLideradosRoute: typeof AppDiretorLideradosRoute
   AppDiretorProblemasRoute: typeof AppDiretorProblemasRoute
   AppDiretorTodoRoute: typeof AppDiretorTodoRoute
-  AppBevskillsIndexRoute: typeof AppBevskillsIndexRoute
   AppDiretorIndexRoute: typeof AppDiretorIndexRoute
-  AppBevskillsAulaIdRoute: typeof AppBevskillsAulaIdRoute
-  AppBevskillsCursoSlugRoute: typeof AppBevskillsCursoSlugRoute
-  AppBevskillsTrilhaSlugRoute: typeof AppBevskillsTrilhaSlugRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -797,18 +676,12 @@ const AppRouteChildren: AppRouteChildren = {
   AppVisaoGeralRoute: AppVisaoGeralRoute,
   AppWarningsRoute: AppWarningsRoute,
   AppIndexRoute: AppIndexRoute,
-  AppBevskillsAdminRoute: AppBevskillsAdminRoute,
-  AppBevskillsCertificadosRoute: AppBevskillsCertificadosRoute,
   AppDiretorAtasRoute: AppDiretorAtasRoute,
   AppDiretorDecisoesRoute: AppDiretorDecisoesRoute,
   AppDiretorLideradosRoute: AppDiretorLideradosRoute,
   AppDiretorProblemasRoute: AppDiretorProblemasRoute,
   AppDiretorTodoRoute: AppDiretorTodoRoute,
-  AppBevskillsIndexRoute: AppBevskillsIndexRoute,
   AppDiretorIndexRoute: AppDiretorIndexRoute,
-  AppBevskillsAulaIdRoute: AppBevskillsAulaIdRoute,
-  AppBevskillsCursoSlugRoute: AppBevskillsCursoSlugRoute,
-  AppBevskillsTrilhaSlugRoute: AppBevskillsTrilhaSlugRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
