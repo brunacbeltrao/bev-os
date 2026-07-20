@@ -9,9 +9,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Briefcase,
   Building2,
+  FileSignature,
   HeartHandshake,
   Pencil,
   Target,
+  Trash2,
   TrendingUp,
   Users,
   Wallet,
@@ -33,7 +35,23 @@ import { useApp } from '@/lib/app-context'
 import { fmtBRL } from '@/lib/financeiro'
 import { MiniLineChart, type LinePoint } from '@/components/mini-line-chart'
 import * as D from '@/lib/dashboards'
+import * as C from '@/lib/contratos'
+import { getDirectory } from '@/lib/org'
 import { canEditDirectorate } from '@/lib/permissions'
+import { cn } from '@/lib/utils'
+
+/** Select nativo com o mesmo visual dos inputs do sistema. */
+function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      {...props}
+      className={cn(
+        'border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-9 w-full rounded-md border px-3 text-sm shadow-xs transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2',
+        className,
+      )}
+    />
+  )
+}
 
 const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 const pctLabel = (frac: number) => `${Math.round(frac * 100)}%`
@@ -187,6 +205,198 @@ function GeralSection() {
 // ============================================================
 // Negócios — Faturamento vs meta BJ + ticket médio + conversão
 // ============================================================
+function ContratosDialog({ ano }: { ano: number }) {
+  const { person, cycle } = useApp()
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  const [cliente, setCliente] = useState('')
+  const [valor, setValor] = useState('')
+  const [data, setData] = useState('')
+  const [servicoId, setServicoId] = useState('')
+  const [responsavelId, setResponsavelId] = useState('')
+  const [segmento, setSegmento] = useState<C.ContratoSegmento>('pme')
+  const [obs, setObs] = useState('')
+
+  const contratosQ = useQuery({
+    queryKey: ['contratos', ano],
+    queryFn: () => C.getContratos(ano),
+    enabled: open,
+  })
+  const servicosQ = useQuery({ queryKey: ['project-services'], queryFn: C.getServicos, enabled: open })
+  const pessoasQ = useQuery({
+    queryKey: ['directory-all', cycle.id],
+    queryFn: () => getDirectory(cycle.id, null),
+    enabled: open,
+  })
+
+  function limpar() {
+    setCliente('')
+    setValor('')
+    setData('')
+    setServicoId('')
+    setResponsavelId('')
+    setSegmento('pme')
+    setObs('')
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!cliente.trim() || !valor || !data) return
+    setSalvando(true)
+    setErro(null)
+    try {
+      await C.createContrato(
+        {
+          cliente: cliente.trim(),
+          valor: num(valor),
+          data_fechamento: data,
+          servico_id: servicoId || null,
+          responsavel_id: responsavelId || null,
+          segmento,
+          observacoes: obs.trim() || null,
+        },
+        person.id,
+      )
+      limpar()
+      qc.invalidateQueries({ queryKey: ['contratos', ano] })
+      qc.invalidateQueries({ queryKey: ['fat-mensal', ano] })
+    } catch {
+      setErro('Não foi possível salvar o contrato. Confirme se você tem permissão em Negócios.')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function remover(id: string) {
+    if (!confirm('Excluir este contrato? O faturamento será recalculado.')) return
+    try {
+      await C.deleteContrato(id)
+      qc.invalidateQueries({ queryKey: ['contratos', ano] })
+      qc.invalidateQueries({ queryKey: ['fat-mensal', ano] })
+    } catch {
+      setErro('Não foi possível excluir o contrato.')
+    }
+  }
+
+  const contratos = contratosQ.data ?? []
+  const total = contratos.reduce((s, c) => s + Number(c.valor), 0)
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <FileSignature className="size-4" />
+          Contratos
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Contratos fechados · {ano}</DialogTitle>
+        </DialogHeader>
+        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+          <form className="grid grid-cols-2 gap-3 rounded-lg border p-3" onSubmit={submit}>
+            <div className="col-span-2">
+              <Field label="Cliente">
+                <Input required value={cliente} onChange={(e) => setCliente(e.target.value)} placeholder="Nome do cliente" />
+              </Field>
+            </div>
+            <Field label="Valor (R$)">
+              <Input required type="number" step="0.01" min="0" value={valor} onChange={(e) => setValor(e.target.value)} />
+            </Field>
+            <Field label="Data de fechamento">
+              <Input required type="date" value={data} onChange={(e) => setData(e.target.value)} />
+            </Field>
+            <Field label="Serviço">
+              <Select value={servicoId} onChange={(e) => setServicoId(e.target.value)}>
+                <option value="">— não informado —</option>
+                {(servicosQ.data ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nome}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Segmento">
+              <Select value={segmento} onChange={(e) => setSegmento(e.target.value as C.ContratoSegmento)}>
+                {Object.entries(C.SEGMENTO_CONTRATO_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <div className="col-span-2">
+              <Field label="Responsável pelo fechamento">
+                <Select value={responsavelId} onChange={(e) => setResponsavelId(e.target.value)}>
+                  <option value="">— não informado —</option>
+                  {(pessoasQ.data ?? []).map((d) => (
+                    <option key={d.person.id} value={d.person.id}>
+                      {d.person.nome}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+            <div className="col-span-2">
+              <Field label="Observações">
+                <Input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+              </Field>
+            </div>
+            {erro && <p className="col-span-2 text-sm text-red-600">{erro}</p>}
+            <div className="col-span-2">
+              <Button type="submit" disabled={salvando} className="w-full">
+                {salvando ? 'Salvando…' : 'Registrar contrato'}
+              </Button>
+            </div>
+          </form>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">
+                {contratos.length} contrato{contratos.length === 1 ? '' : 's'} em {ano}
+              </p>
+              <p className="text-sm font-semibold">{fmtBRL(total)}</p>
+            </div>
+            {contratosQ.isPending ? (
+              <Skeleton className="h-20 w-full" />
+            ) : contratos.length === 0 ? (
+              <p className="text-muted-foreground py-6 text-center text-sm">
+                Nenhum contrato registrado ainda.
+              </p>
+            ) : (
+              contratos.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2.5 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{c.cliente}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {new Date(c.data_fechamento + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      {c.servico ? ` · ${c.servico.nome}` : ''}
+                      {c.responsavel ? ` · ${c.responsavel.nome}` : ''}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">{C.SEGMENTO_CONTRATO_LABELS[c.segmento]}</Badge>
+                  <span className="font-semibold">{fmtBRL(Number(c.valor))}</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label="Excluir contrato"
+                    onClick={() => remover(c.id)}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function NegociosSection({ canEdit }: { canEdit: boolean }) {
   const { cycle } = useApp()
   const anoBj = Number(cycle.nome.split('.')[0]) || new Date().getFullYear()
@@ -203,8 +413,10 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
   const mesAtual = Math.min(new Date().getMonth() + 1, 12)
   const metaMes = fat.find((f) => f.mes === mesAtual)?.meta ?? 0
   const gap = realizadoAtual - metaMes
+  const usandoContratos = fat.some((f) => f.realizado_manual == null && f.realizado_contratos > 0)
 
   const [real, setReal] = useState<Record<number, string>>({})
+  const [meta, setMeta] = useState<Record<number, string>>({})
   const [ticketMeta, setTicketMeta] = useState('')
   const [convMeta, setConvMeta] = useState('')
 
@@ -213,8 +425,10 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
       title="Editar indicadores de Negócios"
       onSave={async () => {
         for (const [mesStr, val] of Object.entries(real)) {
-          const mes = Number(mesStr)
-          await D.setFaturamentoRealizado(anoBj, mes, val === '' ? null : num(val))
+          await D.setFaturamentoRealizado(anoBj, Number(mesStr), val === '' ? null : num(val))
+        }
+        for (const [mesStr, val] of Object.entries(meta)) {
+          if (val !== '') await D.setFaturamentoMeta(anoBj, Number(mesStr), num(val))
         }
         await D.saveNegInd(cycle.id, {
           ticket_medio_meta: ticketMeta === '' ? indQ.data!.ticket_medio_meta : num(ticketMeta),
@@ -224,7 +438,31 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
         qc.invalidateQueries({ queryKey: ['neg-ind', cycle.id] })
       }}
     >
-      <p className="text-muted-foreground text-xs">Realizado acumulado por mês (R$) — {anoBj}</p>
+      <p className="text-muted-foreground text-xs">
+        O realizado é calculado automaticamente somando os contratos fechados do ano. Preencha
+        abaixo só se precisar sobrescrever com o número oficial da Brasil Júnior — deixe em branco
+        para voltar ao automático.
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {fat.map((f) => (
+          <div key={f.mes} className="flex flex-col gap-1">
+            <Label className="text-xs">
+              {MESES[f.mes - 1]}
+              <span className="text-muted-foreground ml-1 font-normal">
+                ({fmtBRL(f.realizado_contratos)})
+              </span>
+            </Label>
+            <Input
+              type="number"
+              step="0.01"
+              placeholder="automático"
+              defaultValue={f.realizado_manual ?? ''}
+              onChange={(e) => setReal((r) => ({ ...r, [f.mes]: e.target.value }))}
+            />
+          </div>
+        ))}
+      </div>
+      <p className="text-muted-foreground mt-2 text-xs">Meta acumulada por mês (R$) — Brasil Júnior</p>
       <div className="grid grid-cols-3 gap-2">
         {fat.map((f) => (
           <div key={f.mes} className="flex flex-col gap-1">
@@ -232,8 +470,8 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
             <Input
               type="number"
               step="0.01"
-              defaultValue={f.realizado ?? ''}
-              onChange={(e) => setReal((r) => ({ ...r, [f.mes]: e.target.value }))}
+              defaultValue={f.meta}
+              onChange={(e) => setMeta((r) => ({ ...r, [f.mes]: e.target.value }))}
             />
           </div>
         ))}
@@ -247,8 +485,15 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
     </EditDialog>
   )
 
+  const acoes = canEdit && (
+    <div className="flex items-center gap-1">
+      <ContratosDialog ano={anoBj} />
+      {edit}
+    </div>
+  )
+
   return (
-    <SectionCard icon={TrendingUp} title="Negócios · Faturamento (Brasil Júnior)" edit={edit}>
+    <SectionCard icon={TrendingUp} title="Negócios · Faturamento (Brasil Júnior)" edit={acoes}>
       {fatQ.isPending ? (
         <Skeleton className="h-40 w-full" />
       ) : (
@@ -266,6 +511,11 @@ function NegociosSection({ canEdit }: { canEdit: boolean }) {
             </Badge>
           </div>
           <MiniLineChart points={points} />
+          <p className="text-muted-foreground text-xs">
+            {usandoContratos
+              ? 'Realizado calculado a partir dos contratos fechados registrados.'
+              : 'Realizado com ajuste manual. Registre os contratos para o cálculo automático.'}
+          </p>
         </>
       )}
 

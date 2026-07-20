@@ -9,13 +9,13 @@ import { Link, useLocation } from '@tanstack/react-router'
 import {
   BarChart3,
   BookOpen,
-  Briefcase,
   CalendarClock,
   CalendarDays,
   Coins,
   Compass,
+  DoorClosed,
   Flag,
-  Handshake,
+  GraduationCap,
   Home,
   Megaphone,
   Newspaper,
@@ -23,6 +23,7 @@ import {
   Sparkles,
   Target,
   UserCog,
+  UserSearch,
   Users,
   Wallet,
   Settings,
@@ -59,15 +60,7 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Calendário', icon: CalendarDays, to: '/agenda' },
       { label: 'Reuniões de Área', icon: CalendarClock, to: '/reunioes' },
       { label: 'Avisos', icon: Megaphone, to: '/comunicados' },
-    ],
-  },
-  {
-    titulo: 'Operação',
-    items: [
-      { label: 'Comercial', icon: Handshake, href: 'https://bevilaqua-comercial.lovable.app/' },
-      { label: 'Projetos', icon: Briefcase, soon: true },
-      { label: 'Institucional', icon: Sparkles, soon: true },
-      { label: 'Marketing', icon: Megaphone, soon: true },
+      { label: 'BevSkills', icon: GraduationCap, soon: true },
     ],
   },
   {
@@ -76,6 +69,7 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Bev News', icon: Newspaper, to: '/bev-news' },
       { label: 'Benchs', icon: Sparkles, to: '/benchs' },
       { label: 'FID / BevCoins', icon: Coins, to: '/fid' },
+      { label: 'Escritório Fechado', icon: DoorClosed, soon: true },
     ],
   },
   {
@@ -93,6 +87,7 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Warnings', icon: Flag, to: '/warnings' },
       { label: 'Frequência', icon: ShieldCheck, to: '/frequencia' },
       { label: 'Pessoas', icon: Users, to: '/pessoas' },
+      { label: 'Banco de Talentos', icon: UserSearch, soon: true },
     ],
   },
   {

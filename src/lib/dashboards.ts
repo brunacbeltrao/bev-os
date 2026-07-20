@@ -107,34 +107,75 @@ export async function getDashProjNucleo(): Promise<BreakdownRow[]> {
   }))
 }
 
-/** ---------- Faturamento mensal Brasil Júnior ---------- */
+/** ---------- Faturamento mensal Brasil Júnior ----------
+ *  `realizado_contratos` = soma ACUMULADA dos contratos fechados do ano
+ *  (fonte automática). `realizado_manual` é um ajuste opcional que, quando
+ *  preenchido, prevalece — serve para casar com o número oficial da BJ.
+ */
 export interface FatMes {
   ano: number
   mes: number
   meta: number
+  realizado_manual: number | null
+  realizado_contratos: number
+  /** valor efetivamente exibido: ajuste manual quando houver, senão contratos */
   realizado: number | null
 }
+
 export async function getFaturamentoMensal(ano: number): Promise<FatMes[]> {
-  const { data, error } = await supabase
-    .from('faturamento_mensal')
-    .select('ano, mes, meta, realizado')
-    .eq('ano', ano)
-    .order('mes')
+  const { data, error } = await supabase.rpc('faturamento_ano', { p_ano: ano })
   if (error) throw error
-  return (data ?? []) as FatMes[]
+  return ((data ?? []) as Array<Record<string, unknown>>).map((r) => {
+    const manual = r.realizado_manual == null ? null : Number(r.realizado_manual)
+    const contratos = Number(r.realizado_contratos ?? 0)
+    return {
+      ano: Number(r.ano),
+      mes: Number(r.mes),
+      meta: Number(r.meta ?? 0),
+      realizado_manual: manual,
+      realizado_contratos: contratos,
+      realizado: manual ?? (contratos > 0 ? contratos : null),
+    }
+  })
 }
+
+/** Grava o ajuste manual do mês. Faz UPDATE (a linha meta/mês já existe);
+ *  se ainda não existir, cria com meta 0 para não violar o NOT NULL. */
 export async function setFaturamentoRealizado(
   ano: number,
   mes: number,
   realizado: number | null,
 ): Promise<void> {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('faturamento_mensal')
-    .upsert(
-      { ano, mes, realizado },
-      { onConflict: 'ano,mes' }
-    )
+    .update({ realizado })
+    .eq('ano', ano)
+    .eq('mes', mes)
+    .select('id')
   if (error) throw error
+  if (!data || data.length === 0) {
+    const { error: insErr } = await supabase
+      .from('faturamento_mensal')
+      .insert({ ano, mes, meta: 0, realizado })
+    if (insErr) throw insErr
+  }
+}
+
+/** Atualiza a meta acumulada de um mês (Brasil Júnior). */
+export async function setFaturamentoMeta(ano: number, mes: number, meta: number): Promise<void> {
+  const { data, error } = await supabase
+    .from('faturamento_mensal')
+    .update({ meta })
+    .eq('ano', ano)
+    .eq('mes', mes)
+    .select('id')
+  if (error) throw error
+  if (!data || data.length === 0) {
+    const { error: insErr } = await supabase
+      .from('faturamento_mensal')
+      .insert({ ano, mes, meta })
+    if (insErr) throw insErr
+  }
 }
 
 /** ---------- KPIs editáveis por diretoria (uma linha por ciclo) ---------- */
