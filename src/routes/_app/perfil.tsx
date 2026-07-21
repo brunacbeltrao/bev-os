@@ -16,6 +16,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { useApp } from '@/lib/app-context'
 import { occupationAreaLabel, ROLE_LABELS } from '@/lib/org'
+import {
+  PerfilAssessor,
+  type AbaPerfil,
+} from '@/components/features/perfil-assessor/perfil-assessor'
 import { initials } from '@/lib/utils'
 
 export const Route = createFileRoute('/_app/perfil')({ component: PerfilPage })
@@ -39,6 +43,7 @@ function PerfilPage() {
   const { person, occupations, cycle } = useApp()
   const queryClient = useQueryClient()
   const [editando, setEditando] = useState(false)
+  const [aba, setAba] = useState<AbaPerfil>('entregas')
   const [nome, setNome] = useState(person.nome)
   const [erroFoto, setErroFoto] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -110,7 +115,7 @@ function PerfilPage() {
   })
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-5xl">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight">Meu perfil</h1>
       </header>
@@ -225,12 +230,17 @@ function PerfilPage() {
             <span className="text-muted-foreground">Tempo de EJ (desde o cadastro): </span>
             <span className="font-medium">{tempoDeEJ(person.entrou_em)}</span>
           </div>
-          <p className="text-muted-foreground text-xs">
-            PDI, advertências/agravos (visíveis só a você e à P&C), demandas e projetos aparecem
-            aqui nas próximas ondas.
-          </p>
         </CardContent>
       </Card>
+
+      <div className="mt-8">
+        <h2 className="mb-1 text-lg font-semibold tracking-tight">Meu desenvolvimento</h2>
+        <p className="text-muted-foreground mb-4 text-sm">
+          Como sua liderança acompanha seu ciclo. Você preenche a autoavaliação das
+          competências; o resto é leitura.
+        </p>
+        <PerfilAssessor personId={person.id} aba={aba} onAbaChange={setAba} />
+      </div>
     </div>
   )
 }
