@@ -40,6 +40,7 @@ import { Route as AppDiretorProblemasRouteImport } from './routes/_app/diretor/p
 import { Route as AppDiretorLideradosRouteImport } from './routes/_app/diretor/liderados'
 import { Route as AppDiretorDecisoesRouteImport } from './routes/_app/diretor/decisoes'
 import { Route as AppDiretorAtasRouteImport } from './routes/_app/diretor/atas'
+import { Route as AppAssessorPersonIdRouteImport } from './routes/_app/assessor.$personId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -195,6 +196,11 @@ const AppDiretorAtasRoute = AppDiretorAtasRouteImport.update({
   path: '/diretor/atas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssessorPersonIdRoute = AppAssessorPersonIdRouteImport.update({
+  id: '/assessor/$personId',
+  path: '/assessor/$personId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -221,6 +227,7 @@ export interface FileRoutesByFullPath {
   '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
+  '/assessor/$personId': typeof AppAssessorPersonIdRoute
   '/diretor/atas': typeof AppDiretorAtasRoute
   '/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/diretor/liderados': typeof AppDiretorLideradosRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByTo {
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
   '/': typeof AppIndexRoute
+  '/assessor/$personId': typeof AppAssessorPersonIdRoute
   '/diretor/atas': typeof AppDiretorAtasRoute
   '/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/diretor/liderados': typeof AppDiretorLideradosRoute
@@ -287,6 +295,7 @@ export interface FileRoutesById {
   '/_app/visao-geral': typeof AppVisaoGeralRoute
   '/_app/warnings': typeof AppWarningsRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/assessor/$personId': typeof AppAssessorPersonIdRoute
   '/_app/diretor/atas': typeof AppDiretorAtasRoute
   '/_app/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/_app/diretor/liderados': typeof AppDiretorLideradosRoute
@@ -321,6 +330,7 @@ export interface FileRouteTypes {
     | '/reunioes'
     | '/visao-geral'
     | '/warnings'
+    | '/assessor/$personId'
     | '/diretor/atas'
     | '/diretor/decisoes'
     | '/diretor/liderados'
@@ -353,6 +363,7 @@ export interface FileRouteTypes {
     | '/visao-geral'
     | '/warnings'
     | '/'
+    | '/assessor/$personId'
     | '/diretor/atas'
     | '/diretor/decisoes'
     | '/diretor/liderados'
@@ -386,6 +397,7 @@ export interface FileRouteTypes {
     | '/_app/visao-geral'
     | '/_app/warnings'
     | '/_app/'
+    | '/_app/assessor/$personId'
     | '/_app/diretor/atas'
     | '/_app/diretor/decisoes'
     | '/_app/diretor/liderados'
@@ -619,6 +631,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDiretorAtasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/assessor/$personId': {
+      id: '/_app/assessor/$personId'
+      path: '/assessor/$personId'
+      fullPath: '/assessor/$personId'
+      preLoaderRoute: typeof AppAssessorPersonIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -645,6 +664,7 @@ interface AppRouteChildren {
   AppVisaoGeralRoute: typeof AppVisaoGeralRoute
   AppWarningsRoute: typeof AppWarningsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppAssessorPersonIdRoute: typeof AppAssessorPersonIdRoute
   AppDiretorAtasRoute: typeof AppDiretorAtasRoute
   AppDiretorDecisoesRoute: typeof AppDiretorDecisoesRoute
   AppDiretorLideradosRoute: typeof AppDiretorLideradosRoute
@@ -676,6 +696,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppVisaoGeralRoute: AppVisaoGeralRoute,
   AppWarningsRoute: AppWarningsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppAssessorPersonIdRoute: AppAssessorPersonIdRoute,
   AppDiretorAtasRoute: AppDiretorAtasRoute,
   AppDiretorDecisoesRoute: AppDiretorDecisoesRoute,
   AppDiretorLideradosRoute: AppDiretorLideradosRoute,
@@ -694,3 +715,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
