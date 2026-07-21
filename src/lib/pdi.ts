@@ -38,6 +38,8 @@ export interface PdiPlan {
   pc_responsavel_id: string | null
   pdia_link: string | null
   quadrante: Quadrante | null
+  foco_area: string | null
+  busca_estagio: boolean
   auto_desenvolvi: string | null
   auto_nao_avancou: string | null
   auto_nota: number | null
