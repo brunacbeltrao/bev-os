@@ -37,9 +37,13 @@ export function CourseCard({ curso, largura = 'w-64' }: { curso: CatalogoItem; l
         />
       ) : (
         <div className="from-accent to-muted flex size-full items-center justify-center bg-gradient-to-br p-4">
-          <span className="text-muted-foreground line-clamp-3 text-center text-sm font-semibold">
-            {curso.titulo}
-          </span>
+          {/* Sem capa e já lançado, o título ancora o card. Em "em breve"
+              a camada escura entra por cima, então o texto só sujaria. */}
+          {!emBreve && (
+            <span className="text-muted-foreground line-clamp-3 text-center text-sm font-semibold">
+              {curso.titulo}
+            </span>
+          )}
         </div>
       )}
 
