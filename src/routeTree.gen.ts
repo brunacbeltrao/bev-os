@@ -35,12 +35,15 @@ import { Route as AppBenchsRouteImport } from './routes/_app/benchs'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppAdminPcRouteImport } from './routes/_app/admin-pc'
 import { Route as AppDiretorIndexRouteImport } from './routes/_app/diretor/index'
+import { Route as AppBevskillsIndexRouteImport } from './routes/_app/bevskills/index'
 import { Route as AppDiretorTodoRouteImport } from './routes/_app/diretor/todo'
 import { Route as AppDiretorProblemasRouteImport } from './routes/_app/diretor/problemas'
 import { Route as AppDiretorLideradosRouteImport } from './routes/_app/diretor/liderados'
 import { Route as AppDiretorDecisoesRouteImport } from './routes/_app/diretor/decisoes'
 import { Route as AppDiretorAtasRouteImport } from './routes/_app/diretor/atas'
+import { Route as AppBevskillsGerenciarRouteImport } from './routes/_app/bevskills/gerenciar'
 import { Route as AppAssessorPersonIdRouteImport } from './routes/_app/assessor.$personId'
+import { Route as AppBevskillsCursoCourseIdRouteImport } from './routes/_app/bevskills/curso.$courseId'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -171,6 +174,11 @@ const AppDiretorIndexRoute = AppDiretorIndexRouteImport.update({
   path: '/diretor/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBevskillsIndexRoute = AppBevskillsIndexRouteImport.update({
+  id: '/bevskills/',
+  path: '/bevskills/',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppDiretorTodoRoute = AppDiretorTodoRouteImport.update({
   id: '/diretor/todo',
   path: '/diretor/todo',
@@ -196,11 +204,22 @@ const AppDiretorAtasRoute = AppDiretorAtasRouteImport.update({
   path: '/diretor/atas',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBevskillsGerenciarRoute = AppBevskillsGerenciarRouteImport.update({
+  id: '/bevskills/gerenciar',
+  path: '/bevskills/gerenciar',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAssessorPersonIdRoute = AppAssessorPersonIdRouteImport.update({
   id: '/assessor/$personId',
   path: '/assessor/$personId',
   getParentRoute: () => AppRoute,
 } as any)
+const AppBevskillsCursoCourseIdRoute =
+  AppBevskillsCursoCourseIdRouteImport.update({
+    id: '/bevskills/curso/$courseId',
+    path: '/bevskills/curso/$courseId',
+    getParentRoute: () => AppRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -228,12 +247,15 @@ export interface FileRoutesByFullPath {
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
   '/assessor/$personId': typeof AppAssessorPersonIdRoute
+  '/bevskills/gerenciar': typeof AppBevskillsGerenciarRoute
   '/diretor/atas': typeof AppDiretorAtasRoute
   '/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/diretor/liderados': typeof AppDiretorLideradosRoute
   '/diretor/problemas': typeof AppDiretorProblemasRoute
   '/diretor/todo': typeof AppDiretorTodoRoute
+  '/bevskills/': typeof AppBevskillsIndexRoute
   '/diretor/': typeof AppDiretorIndexRoute
+  '/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
 }
 export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
@@ -261,12 +283,15 @@ export interface FileRoutesByTo {
   '/warnings': typeof AppWarningsRoute
   '/': typeof AppIndexRoute
   '/assessor/$personId': typeof AppAssessorPersonIdRoute
+  '/bevskills/gerenciar': typeof AppBevskillsGerenciarRoute
   '/diretor/atas': typeof AppDiretorAtasRoute
   '/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/diretor/liderados': typeof AppDiretorLideradosRoute
   '/diretor/problemas': typeof AppDiretorProblemasRoute
   '/diretor/todo': typeof AppDiretorTodoRoute
+  '/bevskills': typeof AppBevskillsIndexRoute
   '/diretor': typeof AppDiretorIndexRoute
+  '/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -296,12 +321,15 @@ export interface FileRoutesById {
   '/_app/warnings': typeof AppWarningsRoute
   '/_app/': typeof AppIndexRoute
   '/_app/assessor/$personId': typeof AppAssessorPersonIdRoute
+  '/_app/bevskills/gerenciar': typeof AppBevskillsGerenciarRoute
   '/_app/diretor/atas': typeof AppDiretorAtasRoute
   '/_app/diretor/decisoes': typeof AppDiretorDecisoesRoute
   '/_app/diretor/liderados': typeof AppDiretorLideradosRoute
   '/_app/diretor/problemas': typeof AppDiretorProblemasRoute
   '/_app/diretor/todo': typeof AppDiretorTodoRoute
+  '/_app/bevskills/': typeof AppBevskillsIndexRoute
   '/_app/diretor/': typeof AppDiretorIndexRoute
+  '/_app/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -331,12 +359,15 @@ export interface FileRouteTypes {
     | '/visao-geral'
     | '/warnings'
     | '/assessor/$personId'
+    | '/bevskills/gerenciar'
     | '/diretor/atas'
     | '/diretor/decisoes'
     | '/diretor/liderados'
     | '/diretor/problemas'
     | '/diretor/todo'
+    | '/bevskills/'
     | '/diretor/'
+    | '/bevskills/curso/$courseId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/cadastro'
@@ -364,12 +395,15 @@ export interface FileRouteTypes {
     | '/warnings'
     | '/'
     | '/assessor/$personId'
+    | '/bevskills/gerenciar'
     | '/diretor/atas'
     | '/diretor/decisoes'
     | '/diretor/liderados'
     | '/diretor/problemas'
     | '/diretor/todo'
+    | '/bevskills'
     | '/diretor'
+    | '/bevskills/curso/$courseId'
   id:
     | '__root__'
     | '/_app'
@@ -398,12 +432,15 @@ export interface FileRouteTypes {
     | '/_app/warnings'
     | '/_app/'
     | '/_app/assessor/$personId'
+    | '/_app/bevskills/gerenciar'
     | '/_app/diretor/atas'
     | '/_app/diretor/decisoes'
     | '/_app/diretor/liderados'
     | '/_app/diretor/problemas'
     | '/_app/diretor/todo'
+    | '/_app/bevskills/'
     | '/_app/diretor/'
+    | '/_app/bevskills/curso/$courseId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -596,6 +633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDiretorIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/bevskills/': {
+      id: '/_app/bevskills/'
+      path: '/bevskills'
+      fullPath: '/bevskills/'
+      preLoaderRoute: typeof AppBevskillsIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/diretor/todo': {
       id: '/_app/diretor/todo'
       path: '/diretor/todo'
@@ -631,11 +675,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDiretorAtasRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/bevskills/gerenciar': {
+      id: '/_app/bevskills/gerenciar'
+      path: '/bevskills/gerenciar'
+      fullPath: '/bevskills/gerenciar'
+      preLoaderRoute: typeof AppBevskillsGerenciarRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/assessor/$personId': {
       id: '/_app/assessor/$personId'
       path: '/assessor/$personId'
       fullPath: '/assessor/$personId'
       preLoaderRoute: typeof AppAssessorPersonIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/bevskills/curso/$courseId': {
+      id: '/_app/bevskills/curso/$courseId'
+      path: '/bevskills/curso/$courseId'
+      fullPath: '/bevskills/curso/$courseId'
+      preLoaderRoute: typeof AppBevskillsCursoCourseIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -665,12 +723,15 @@ interface AppRouteChildren {
   AppWarningsRoute: typeof AppWarningsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppAssessorPersonIdRoute: typeof AppAssessorPersonIdRoute
+  AppBevskillsGerenciarRoute: typeof AppBevskillsGerenciarRoute
   AppDiretorAtasRoute: typeof AppDiretorAtasRoute
   AppDiretorDecisoesRoute: typeof AppDiretorDecisoesRoute
   AppDiretorLideradosRoute: typeof AppDiretorLideradosRoute
   AppDiretorProblemasRoute: typeof AppDiretorProblemasRoute
   AppDiretorTodoRoute: typeof AppDiretorTodoRoute
+  AppBevskillsIndexRoute: typeof AppBevskillsIndexRoute
   AppDiretorIndexRoute: typeof AppDiretorIndexRoute
+  AppBevskillsCursoCourseIdRoute: typeof AppBevskillsCursoCourseIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -697,12 +758,15 @@ const AppRouteChildren: AppRouteChildren = {
   AppWarningsRoute: AppWarningsRoute,
   AppIndexRoute: AppIndexRoute,
   AppAssessorPersonIdRoute: AppAssessorPersonIdRoute,
+  AppBevskillsGerenciarRoute: AppBevskillsGerenciarRoute,
   AppDiretorAtasRoute: AppDiretorAtasRoute,
   AppDiretorDecisoesRoute: AppDiretorDecisoesRoute,
   AppDiretorLideradosRoute: AppDiretorLideradosRoute,
   AppDiretorProblemasRoute: AppDiretorProblemasRoute,
   AppDiretorTodoRoute: AppDiretorTodoRoute,
+  AppBevskillsIndexRoute: AppBevskillsIndexRoute,
   AppDiretorIndexRoute: AppDiretorIndexRoute,
+  AppBevskillsCursoCourseIdRoute: AppBevskillsCursoCourseIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
