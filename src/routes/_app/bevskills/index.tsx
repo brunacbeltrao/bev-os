@@ -6,15 +6,18 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { GraduationCap, Search, Settings2, X } from 'lucide-react'
+import { GraduationCap, Plus, Search, Settings2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useApp } from '@/lib/app-context'
 import {
   agruparPorDiretoria,
   COR_DIRETORIA,
   getCatalogo,
+  getDiretorias,
+  ORDEM_DIRETORIAS,
   type CatalogoItem,
 } from '@/lib/bevskills'
 import { CourseCard } from '@/components/features/bevskills/course-card'
@@ -23,13 +26,26 @@ import { Carrossel } from '@/components/features/bevskills/carrossel'
 export const Route = createFileRoute('/_app/bevskills/')({ component: BevSkillsHome })
 
 function BevSkillsHome() {
+  const { occupations, souPC } = useApp()
   const [busca, setBusca] = useState('')
   const [filtro, setFiltro] = useState<string | null>(null)
 
   const q = useQuery({ queryKey: ['bevskills-catalogo'], queryFn: getCatalogo })
+  const diretoriasQ = useQuery({ queryKey: ['bev-diretorias'], queryFn: getDiretorias })
   const catalogo = q.data ?? []
 
-  const podeGerir = catalogo.some((c) => c.pode_gerir)
+  /** Diretorias em que eu publico — a fileira aparece mesmo vazia,
+   *  com um convite para criar o primeiro curso. */
+  const slugsQueGerencio = useMemo(() => {
+    if (souPC) return new Set((diretoriasQ.data ?? []).map((d) => d.slug))
+    return new Set(
+      occupations
+        .filter((o) => ['diretor', 'gerente', 'coordenador'].includes(o.role))
+        .map((o) => o.directorate.slug),
+    )
+  }, [occupations, souPC, diretoriasQ.data])
+
+  const podeGerir = slugsQueGerencio.size > 0
 
   const continuar = useMemo(
     () =>
@@ -58,7 +74,19 @@ function BevSkillsHome() {
     })
   }, [catalogo, termo, filtro])
 
-  const fileiras = useMemo(() => agruparPorDiretoria(catalogo), [catalogo])
+  const fileiras = useMemo(() => {
+    const comCursos = agruparPorDiretoria(catalogo)
+    const vistos = new Set(comCursos.map((f) => f.slug))
+    const vazias = (diretoriasQ.data ?? [])
+      .filter((d) => !vistos.has(d.slug) && slugsQueGerencio.has(d.slug))
+      .map((d) => ({ slug: d.slug, nome: d.nome, cursos: [] as CatalogoItem[] }))
+    return [...comCursos, ...vazias].sort((a, b) => {
+      const ia = ORDEM_DIRETORIAS.indexOf(a.slug as never)
+      const ib = ORDEM_DIRETORIAS.indexOf(b.slug as never)
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+    })
+  }, [catalogo, diretoriasQ.data, slugsQueGerencio])
+
   const diretorias = useMemo(
     () => agruparPorDiretoria(catalogo).map((f) => ({ slug: f.slug, nome: f.nome })),
     [catalogo],
@@ -156,9 +184,17 @@ function BevSkillsHome() {
 
           {fileiras.map((f) => (
             <Carrossel key={f.slug} titulo={f.nome} cor={COR_DIRETORIA[f.slug]}>
-              {f.cursos.map((c) => (
-                <CourseCard key={c.id} curso={c} />
-              ))}
+              {f.cursos.length === 0 ? (
+                <Link
+                  to="/bevskills/gerenciar"
+                  className="hover:border-ring hover:bg-accent/40 text-muted-foreground hover:text-foreground flex aspect-video w-64 shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed text-sm transition-colors"
+                >
+                  <Plus className="size-5" />
+                  Criar o primeiro curso
+                </Link>
+              ) : (
+                f.cursos.map((c) => <CourseCard key={c.id} curso={c} />)
+              )}
             </Carrossel>
           ))}
         </div>
