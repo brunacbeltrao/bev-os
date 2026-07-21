@@ -60,7 +60,7 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Calendário', icon: CalendarDays, to: '/agenda' },
       { label: 'Reuniões de Área', icon: CalendarClock, to: '/reunioes' },
       { label: 'Avisos', icon: Megaphone, to: '/comunicados' },
-      { label: 'BevSkills', icon: GraduationCap, soon: true },
+      { label: 'BevSkills', icon: GraduationCap, to: '/bevskills' },
     ],
   },
   {
