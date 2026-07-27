@@ -238,6 +238,7 @@ export async function savePcInd(cycleId: string, patch: PcInd): Promise<void> {
 }
 
 export interface InstInd {
+  /** Legado: o realizado agora vem da soma dos lançamentos em colab_faturamentos. */
   colab_realizado: number
   colab_meta: number
   colab_ej: number
@@ -275,16 +276,15 @@ export async function saveInstInd(cycleId: string, patch: InstInd): Promise<void
 
 export interface BevInd {
   csat: number | null
-  projeto_impacto: string | null
 }
 export async function getBevInd(cycleId: string): Promise<BevInd> {
   const { data, error } = await supabase
     .from('bev_indicadores')
-    .select('csat, projeto_impacto')
+    .select('csat')
     .eq('cycle_id', cycleId)
     .maybeSingle()
   if (error) throw error
-  return (data as BevInd) ?? { csat: null, projeto_impacto: null }
+  return (data as BevInd) ?? { csat: null }
 }
 export async function saveBevInd(cycleId: string, patch: BevInd): Promise<void> {
   const { error } = await supabase

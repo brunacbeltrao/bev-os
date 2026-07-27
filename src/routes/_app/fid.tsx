@@ -25,23 +25,28 @@ import {
   requestRedemption,
   evaluateRequest,
   creditBevCoins,
+  getEligibleMembers,
+  CARGO_LABELS,
 } from '@/lib/fid'
-import { supabase } from '@/lib/supabase'
+import {
+  canLaunchBevCoins,
+  isDiretorGestao,
+  isEligibleForBevCoins,
+} from '@/lib/permissions'
 
 export const Route = createFileRoute('/_app/fid')({
   component: FidPage,
 })
 
 function FidPage() {
-  const { cycle, primary } = useApp()
+  const { cycle, occupations } = useApp()
 
-  const isGestaoDiretor = primary.directorate.slug === 'gestao' && primary.role === 'diretor'
-  const isNegociosDiretor = primary.directorate.slug === 'negocios' && primary.role === 'diretor'
-  
-  const canCredit = isNegociosDiretor
-  const canApprove = isGestaoDiretor
+  // Lançar crédito: lideranças da Diretoria de Negócios.
+  // Atestar / reprovar resgate: apenas o Diretor de Gestão.
+  const canCredit = canLaunchBevCoins(occupations)
+  const canApprove = isDiretorGestao(occupations)
   const canAdmin = canCredit || canApprove
-  const isEligible = !isGestaoDiretor && !isNegociosDiretor
+  const isEligible = isEligibleForBevCoins(occupations)
 
   const [activeTab, setActiveTab] = useState<'carteira' | 'ranking' | 'admin'>(isEligible ? 'carteira' : 'admin')
 
@@ -381,25 +386,11 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
     },
   })
 
-  const { data: members } = useQuery({
-    queryKey: ['approved_roster', cycleId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('approved_roster')
-        .select('email, nome, role, directorates!inner(slug), people!inner(id)')
-        .eq('cycle_id', cycleId)
-        .order('nome')
-      if (error) throw error
-      
-      // Filtra apenas membros elegíveis (todos exceto Diretor de Gestão e Diretora de Negócios)
-      return data.filter((m: any) => {
-        const dSlug = m.directorates?.slug || (Array.isArray(m.directorates) ? m.directorates[0]?.slug : null)
-        return !(
-          m.role === 'diretor' &&
-          (dSlug === 'gestao' || dSlug === 'negocios')
-        )
-      })
-    },
+  // Todo mundo do roster é pré-provisionado no banco, então os nomes
+  // aparecem aqui mesmo antes de a pessoa criar a conta.
+  const { data: members, isPending: membersPending } = useQuery({
+    queryKey: ['bevcoins-elegiveis', cycleId],
+    queryFn: () => getEligibleMembers(cycleId),
     enabled: canCredit,
   })
 
@@ -410,7 +401,11 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
           <CardHeader className="flex flex-row items-center justify-between pb-4">
             <div>
               <CardTitle>Painel de Negócios</CardTitle>
-              <CardDescription>Adicione os créditos de contratos fechados (6,25% de conversão calculada automaticamente)</CardDescription>
+              <CardDescription>
+                Lançamento de créditos por contrato fechado — só a Diretoria de Negócios lança
+                (6,25% de conversão calculada automaticamente). A aprovação dos resgates é do
+                Diretor de Gestão.
+              </CardDescription>
             </div>
             <Dialog open={openCredit} onOpenChange={setOpenCredit}>
               <DialogTrigger asChild>
@@ -441,14 +436,19 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
                       onChange={(e) => setPersonId(e.target.value)}
                     >
                       <option value="" disabled>
-                        Selecione um membro...
+                        {membersPending ? 'Carregando membros…' : 'Selecione um membro...'}
                       </option>
-                      {members?.map((m: any) => (
-                        <option key={m.people.id} value={m.people.id}>
-                          {m.nome}
+                      {members?.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nome} — {CARGO_LABELS[m.cargo]} · {m.area}
                         </option>
                       ))}
                     </select>
+                    {!membersPending && members && members.length === 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        Nenhum membro elegível encontrado neste ciclo.
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2">
                     <Label>Nome do Contrato / Cliente</Label>

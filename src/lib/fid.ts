@@ -135,3 +135,63 @@ export async function creditBevCoins(cycle_id: string, person_id: string, amount
 
   if (error) throw error
 }
+
+/**
+ * Membros que podem receber crédito.
+ *
+ * Lê o vínculo do ciclo direto de `occupations` — como toda pessoa do
+ * approved_roster é pré-provisionada no banco, os nomes aparecem aqui
+ * mesmo antes de a pessoa criar a conta. Ficam de fora quem lança
+ * crédito (lideranças de Negócios) e quem aprova (Diretor de Gestão).
+ */
+export interface EligibleMember {
+  id: string
+  nome: string
+  area: string
+  cargo: RoleType
+}
+
+export async function getEligibleMembers(cycle_id: string): Promise<EligibleMember[]> {
+  const { data, error } = await supabase
+    .from('occupations')
+    .select(
+      'role, is_hibrido, person:people!inner(id, nome, email), directorate:directorates!inner(slug, nome), subarea:subareas!inner(nome)',
+    )
+    .eq('cycle_id', cycle_id)
+    .eq('is_hibrido', false)
+
+  if (error) throw error
+
+  const rows = (data ?? []) as unknown as Array<{
+    role: RoleType
+    person: { id: string; nome: string; email: string }
+    directorate: { slug: string; nome: string }
+    subarea: { nome: string }
+  }>
+
+  const LIDERANCA = ['diretor', 'gerente', 'coordenador']
+
+  return rows
+    .filter((r) => {
+      const lancaCredito = r.directorate.slug === 'negocios' && LIDERANCA.includes(r.role)
+      const aprovaResgate = r.directorate.slug === 'gestao' && r.role === 'diretor'
+      return !lancaCredito && !aprovaResgate
+    })
+    .map((r) => ({
+      id: r.person.id,
+      nome: r.person.nome,
+      area: r.role === 'diretor' ? r.directorate.nome : r.subarea.nome,
+      cargo: r.role,
+    }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+export type RoleType = 'diretor' | 'gerente' | 'coordenador' | 'analista' | 'assessor'
+
+export const CARGO_LABELS: Record<RoleType, string> = {
+  diretor: 'Diretor(a)',
+  gerente: 'Gerente',
+  coordenador: 'Coordenador(a)',
+  analista: 'Analista',
+  assessor: 'Assessor(a)',
+}

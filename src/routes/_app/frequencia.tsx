@@ -1,7 +1,10 @@
 /**
  * Frequência (Onda 3) — Formulário + Histórico: justificativa de
- * ausência em evento específico (não é ponto diário). Liderança do
- * evento aprova/rejeita com a barra transversal.
+ * ausência em evento específico (não é ponto diário).
+ *
+ * Fluxo: qualquer membro envia a justificativa; APENAS as lideranças de
+ * Pessoas e Cultura (Diretor, Gerente ou Coordenador de P&C) aprovam ou
+ * rejeitam. O RLS garante a regra; aqui só decidimos o que mostrar.
  */
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
@@ -23,11 +26,13 @@ import {
   JUST_BADGE,
 } from '@/lib/frequencia'
 import { fmtDate } from '@/lib/use-context-scope'
+import { isPcLideranca } from '@/lib/permissions'
 
 export const Route = createFileRoute('/_app/frequencia')({ component: FrequenciaPage })
 
 function FrequenciaPage() {
-  const { person } = useApp()
+  const { person, occupations } = useApp()
+  const podeAvaliar = isPcLideranca(occupations)
   const queryClient = useQueryClient()
   const [eventId, setEventId] = useState('')
   const [motivo, setMotivo] = useState('')
@@ -54,9 +59,9 @@ function FrequenciaPage() {
   })
 
   const minhas = (justQ.data ?? []).filter((j) => j.person_id === person.id)
-  const paraAprovar = (justQ.data ?? []).filter(
-    (j) => j.person_id !== person.id && j.status === 'pendente',
-  )
+  const paraAprovar = podeAvaliar
+    ? (justQ.data ?? []).filter((j) => j.person_id !== person.id && j.status === 'pendente')
+    : []
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -68,7 +73,8 @@ function FrequenciaPage() {
           Frequência
         </h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Justificativas de ausência em reuniões e eventos — não é controle de ponto.
+          Justificativas de ausência em reuniões e eventos — não é controle de ponto. A análise é
+          feita pelas lideranças de Pessoas e Cultura.
         </p>
       </header>
 
@@ -111,9 +117,11 @@ function FrequenciaPage() {
         </CardContent>
       </Card>
 
-      {paraAprovar.length > 0 && (
+      {podeAvaliar && paraAprovar.length > 0 && (
         <>
-          <h2 className="mb-2 text-sm font-medium">Aguardando sua aprovação</h2>
+          <h2 className="mb-2 text-sm font-medium">
+            Aguardando análise de Pessoas e Cultura
+          </h2>
           <div className="mb-5 flex flex-col gap-2">
             {paraAprovar.map((j) => (
               <Card key={j.id}>

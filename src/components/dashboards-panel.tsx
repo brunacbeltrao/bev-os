@@ -10,6 +10,7 @@ import {
   Briefcase,
   Building2,
   FileSignature,
+  Handshake,
   HeartHandshake,
   Pencil,
   Target,
@@ -36,6 +37,7 @@ import { fmtBRL } from '@/lib/financeiro'
 import { MiniLineChart, type LinePoint } from '@/components/mini-line-chart'
 import * as D from '@/lib/dashboards'
 import * as C from '@/lib/contratos'
+import * as CL from '@/lib/colab'
 import { getDirectory } from '@/lib/org'
 import { canEditDirectorate } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
@@ -153,31 +155,24 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 // ============================================================
-// Faixa geral BEV (Portal BJ) — CSAT + Projeto de impacto (Direx)
+// Faixa geral BEV (Portal BJ) — CSAT (Direx)
 // ============================================================
 function GeralSection() {
   const { cycle, isDirex } = useApp()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['bev-ind', cycle.id], queryFn: () => D.getBevInd(cycle.id) })
   const [csat, setCsat] = useState('')
-  const [impacto, setImpacto] = useState('')
 
   const edit = isDirex && q.data && (
     <EditDialog
       title="Indicadores gerais BEV"
       onSave={async () => {
-        await D.saveBevInd(cycle.id, {
-          csat: csat === '' ? q.data!.csat : num(csat),
-          projeto_impacto: impacto === '' ? q.data!.projeto_impacto : impacto,
-        })
+        await D.saveBevInd(cycle.id, { csat: csat === '' ? q.data!.csat : num(csat) })
         qc.invalidateQueries({ queryKey: ['bev-ind', cycle.id] })
       }}
     >
       <Field label="CSAT (satisfação do cliente)">
         <Input type="number" step="0.1" defaultValue={q.data?.csat ?? ''} onChange={(e) => setCsat(e.target.value)} placeholder="Ex.: 8.7" />
-      </Field>
-      <Field label="Projeto de impacto (status)">
-        <Input defaultValue={q.data?.projeto_impacto ?? ''} onChange={(e) => setImpacto(e.target.value)} placeholder="Ex.: em andamento" />
       </Field>
     </EditDialog>
   )
@@ -187,15 +182,9 @@ function GeralSection() {
       {q.isPending ? (
         <Skeleton className="h-12 w-full" />
       ) : (
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-2xl font-semibold">{q.data?.csat != null ? q.data.csat : '—'}</p>
-            <p className="text-muted-foreground text-xs">CSAT</p>
-          </div>
-          <div>
-            <p className="text-2xl font-semibold">{q.data?.projeto_impacto || '—'}</p>
-            <p className="text-muted-foreground text-xs">Projeto de impacto</p>
-          </div>
+        <div>
+          <p className="text-2xl font-semibold">{q.data?.csat != null ? q.data.csat : '—'}</p>
+          <p className="text-muted-foreground text-xs">CSAT · satisfação do cliente</p>
         </div>
       )}
     </SectionCard>
@@ -702,19 +691,233 @@ function PcSection({ canEdit }: { canEdit: boolean }) {
 // ============================================================
 // Institucional — faturamento colaborativo + engajamento MEJ
 // ============================================================
+/** Registro de colaborações: serviço, EJ parceira, valor total e valor BEV. */
+function ColabDialog() {
+  const { person, cycle } = useApp()
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
+
+  const [servicoId, setServicoId] = useState('')
+  const [servicoOutro, setServicoOutro] = useState('')
+  const [ej, setEj] = useState('')
+  const [valorTotal, setValorTotal] = useState('')
+  const [valorBev, setValorBev] = useState('')
+  const [fechadoPor, setFechadoPor] = useState('')
+  const [data, setData] = useState(new Date().toISOString().slice(0, 10))
+  const [obs, setObs] = useState('')
+
+  const listaQ = useQuery({
+    queryKey: ['colab-faturamentos', cycle.id],
+    queryFn: () => CL.getColabFaturamentos(cycle.id),
+    enabled: open,
+  })
+  const servicosQ = useQuery({ queryKey: ['project-services'], queryFn: C.getServicos, enabled: open })
+  const pessoasQ = useQuery({
+    queryKey: ['directory-all', cycle.id],
+    queryFn: () => getDirectory(cycle.id, null),
+    enabled: open,
+  })
+
+  function limpar() {
+    setServicoId('')
+    setServicoOutro('')
+    setEj('')
+    setValorTotal('')
+    setValorBev('')
+    setFechadoPor('')
+    setObs('')
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!ej.trim() || !valorTotal || !valorBev) return
+    if (!servicoId && !servicoOutro.trim()) {
+      setErro('Informe o tipo de serviço.')
+      return
+    }
+    if (num(valorBev) > num(valorTotal)) {
+      setErro('O valor do BEV não pode ser maior que o valor total do contrato.')
+      return
+    }
+    setSalvando(true)
+    setErro(null)
+    try {
+      await CL.createColabFaturamento(
+        {
+          cycle_id: cycle.id,
+          servico_id: servicoId || null,
+          servico_outro: servicoId ? null : servicoOutro.trim(),
+          ej_parceira: ej.trim(),
+          valor_total: num(valorTotal),
+          valor_bev: num(valorBev),
+          fechado_por: fechadoPor || null,
+          data_fechamento: data,
+          observacoes: obs.trim() || null,
+        },
+        person.id,
+      )
+      limpar()
+      qc.invalidateQueries({ queryKey: ['colab-faturamentos', cycle.id] })
+    } catch {
+      setErro('Não foi possível salvar. Confirme se você tem permissão em Institucional.')
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function remover(id: string) {
+    if (!confirm('Excluir esta colaboração? O faturamento será recalculado.')) return
+    try {
+      await CL.deleteColabFaturamento(id)
+      qc.invalidateQueries({ queryKey: ['colab-faturamentos', cycle.id] })
+    } catch {
+      setErro('Não foi possível excluir o lançamento.')
+    }
+  }
+
+  const rows = listaQ.data ?? []
+  const resumo = CL.resumirColab(rows)
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Handshake className="size-4" />
+          Colaborações
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Faturamento colaborativo · {cycle.nome}</DialogTitle>
+        </DialogHeader>
+        <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto">
+          <form className="grid grid-cols-2 gap-3 rounded-lg border p-3" onSubmit={submit}>
+            <Field label="Tipo de serviço">
+              <Select
+                value={servicoId}
+                onChange={(e) => {
+                  setServicoId(e.target.value)
+                  if (e.target.value) setServicoOutro('')
+                }}
+              >
+                <option value="">— outro (descrever) —</option>
+                {(servicosQ.data ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nome}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="EJ parceira">
+              <Input required value={ej} onChange={(e) => setEj(e.target.value)} placeholder="Ex.: ACE Consultoria" />
+            </Field>
+            {!servicoId && (
+              <div className="col-span-2">
+                <Field label="Descreva o serviço">
+                  <Input
+                    required
+                    value={servicoOutro}
+                    onChange={(e) => setServicoOutro(e.target.value)}
+                    placeholder="Ex.: Consultoria conjunta em compliance"
+                  />
+                </Field>
+              </div>
+            )}
+            <Field label="Valor total do contrato (R$)">
+              <Input required type="number" step="0.01" min="0" value={valorTotal} onChange={(e) => setValorTotal(e.target.value)} />
+            </Field>
+            <Field label="Valor para o BEV (R$)">
+              <Input required type="number" step="0.01" min="0" value={valorBev} onChange={(e) => setValorBev(e.target.value)} />
+            </Field>
+            <Field label="Quem fechou">
+              <Select value={fechadoPor} onChange={(e) => setFechadoPor(e.target.value)}>
+                <option value="">— não informado —</option>
+                {(pessoasQ.data ?? []).map((d) => (
+                  <option key={d.person.id} value={d.person.id}>
+                    {d.person.nome}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Data de fechamento">
+              <Input required type="date" value={data} onChange={(e) => setData(e.target.value)} />
+            </Field>
+            <div className="col-span-2">
+              <Field label="Observações">
+                <Input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+              </Field>
+            </div>
+            {erro && <p className="col-span-2 text-sm text-red-600">{erro}</p>}
+            <div className="col-span-2">
+              <Button type="submit" disabled={salvando} className="w-full">
+                {salvando ? 'Salvando…' : 'Registrar colaboração'}
+              </Button>
+            </div>
+          </form>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">
+                {resumo.lancamentos} colaboraç{resumo.lancamentos === 1 ? 'ão' : 'ões'} ·{' '}
+                {resumo.parceiros} parceir{resumo.parceiros === 1 ? 'o' : 'os'}
+              </p>
+              <p className="text-sm font-semibold">{fmtBRL(resumo.realizado)} p/ o BEV</p>
+            </div>
+            {listaQ.isPending ? (
+              <Skeleton className="h-20 w-full" />
+            ) : rows.length === 0 ? (
+              <p className="text-muted-foreground py-6 text-center text-sm">
+                Nenhuma colaboração registrada ainda.
+              </p>
+            ) : (
+              rows.map((c) => (
+                <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2.5 text-sm">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{c.ej_parceira}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {new Date(c.data_fechamento + 'T12:00:00').toLocaleDateString('pt-BR')} ·{' '}
+                      {CL.servicoLabel(c)}
+                      {c.responsavel ? ` · ${c.responsavel.nome}` : ''}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold">{fmtBRL(c.valor_bev)}</p>
+                    <p className="text-muted-foreground text-xs">de {fmtBRL(c.valor_total)}</p>
+                  </div>
+                  <Button size="icon" variant="ghost" aria-label="Excluir colaboração" onClick={() => remover(c.id)}>
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function InstitucionalSection({ canEdit }: { canEdit: boolean }) {
   const { cycle } = useApp()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['inst-ind', cycle.id], queryFn: () => D.getInstInd(cycle.id) })
+  const colabQ = useQuery({
+    queryKey: ['colab-faturamentos', cycle.id],
+    queryFn: () => CL.getColabFaturamentos(cycle.id),
+  })
   const [f, setF] = useState<Partial<D.InstInd>>({})
 
   const d = q.data
-  const edit = canEdit && d && (
+  const resumo = CL.resumirColab(colabQ.data ?? [])
+
+  const dialogEdit = canEdit && d && (
     <EditDialog
-      title="Editar indicadores de Institucional"
+      title="Editar metas de Institucional"
       onSave={async () => {
         await D.saveInstInd(cycle.id, {
-          colab_realizado: f.colab_realizado ?? d.colab_realizado,
+          colab_realizado: d.colab_realizado,
           colab_meta: f.colab_meta ?? d.colab_meta,
           colab_ej: f.colab_ej ?? d.colab_ej,
           colab_ej_meta: f.colab_ej_meta ?? d.colab_ej_meta,
@@ -726,18 +929,19 @@ function InstitucionalSection({ canEdit }: { canEdit: boolean }) {
         qc.invalidateQueries({ queryKey: ['inst-ind', cycle.id] })
       }}
     >
-      <Field label="Faturamento colaborativo — realizado (R$)">
-        <Input type="number" step="0.01" defaultValue={d?.colab_realizado} onChange={(e) => setF((p) => ({ ...p, colab_realizado: num(e.target.value) }))} />
-      </Field>
+      <p className="text-muted-foreground text-xs">
+        O realizado do faturamento colaborativo é somado automaticamente a partir das colaborações
+        registradas — use o botão “Colaborações” para lançar uma nova.
+      </p>
       <Field label="Faturamento colaborativo — meta (R$)">
         <Input type="number" step="0.01" defaultValue={d?.colab_meta} onChange={(e) => setF((p) => ({ ...p, colab_meta: num(e.target.value) }))} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Colaborações com EJ">
-          <Input type="number" defaultValue={d?.colab_ej} onChange={(e) => setF((p) => ({ ...p, colab_ej: num(e.target.value) }))} />
+        <Field label="Meta de colaborações com EJ">
+          <Input type="number" defaultValue={d?.colab_ej_meta} onChange={(e) => setF((p) => ({ ...p, colab_ej_meta: num(e.target.value) }))} />
         </Field>
-        <Field label="Colaborações c/ agentes">
-          <Input type="number" defaultValue={d?.colab_agentes} onChange={(e) => setF((p) => ({ ...p, colab_agentes: num(e.target.value) }))} />
+        <Field label="Meta de agentes diferentes">
+          <Input type="number" defaultValue={d?.colab_agentes_meta} onChange={(e) => setF((p) => ({ ...p, colab_agentes_meta: num(e.target.value) }))} />
         </Field>
       </div>
       <Field label="Superávit vs ano anterior (R$)">
@@ -749,8 +953,15 @@ function InstitucionalSection({ canEdit }: { canEdit: boolean }) {
     </EditDialog>
   )
 
+  const acoes = canEdit && (
+    <div className="flex items-center gap-1">
+      <ColabDialog />
+      {dialogEdit}
+    </div>
+  )
+
   return (
-    <SectionCard icon={Building2} title="Institucional · Colaborativo e MEJ" edit={edit}>
+    <SectionCard icon={Building2} title="Institucional · Colaborativo e MEJ" edit={acoes}>
       {q.isPending || !d ? (
         <Skeleton className="h-32 w-full" />
       ) : (
@@ -759,26 +970,28 @@ function InstitucionalSection({ canEdit }: { canEdit: boolean }) {
             <div className="mb-1 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Faturamento colaborativo</span>
               <span className="font-medium">
-                {fmtBRL(d.colab_realizado)} / {fmtBRL(d.colab_meta)} · {pctLabel(d.colab_meta > 0 ? d.colab_realizado / d.colab_meta : 0)}
+                {fmtBRL(resumo.realizado)} / {fmtBRL(d.colab_meta)} ·{' '}
+                {pctLabel(d.colab_meta > 0 ? resumo.realizado / d.colab_meta : 0)}
               </span>
             </div>
-            <Bar value={d.colab_realizado} max={d.colab_meta} />
+            <Bar value={resumo.realizado} max={d.colab_meta} />
             <p className="text-muted-foreground mt-1 text-xs">
-              Contam: terceirizações com IES, Mercado Sênior e Governo.
+              Soma do valor que fica com o BEV em {resumo.lancamentos} colaboração
+              {resumo.lancamentos === 1 ? '' : 'ões'} · {fmtBRL(resumo.valorContratado)} em contratos.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
               <p className="text-lg font-semibold">
-                {d.colab_ej}/{d.colab_ej_meta}
+                {resumo.lancamentos}/{d.colab_ej_meta}
               </p>
-              <p className="text-muted-foreground text-xs">colab. com EJ</p>
+              <p className="text-muted-foreground text-xs">colaborações</p>
             </div>
             <div>
               <p className="text-lg font-semibold">
-                {d.colab_agentes}/{d.colab_agentes_meta}
+                {resumo.parceiros}/{d.colab_agentes_meta}
               </p>
-              <p className="text-muted-foreground text-xs">agentes diferentes</p>
+              <p className="text-muted-foreground text-xs">parceiros diferentes</p>
             </div>
             <div>
               <p className="text-lg font-semibold">{d.engajamento_mej != null ? `${d.engajamento_mej}%` : '—'}</p>

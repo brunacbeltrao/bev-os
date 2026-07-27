@@ -13,7 +13,6 @@ import {
   CalendarDays,
   Coins,
   Compass,
-  DoorClosed,
   Flag,
   GraduationCap,
   Home,
@@ -23,7 +22,6 @@ import {
   Sparkles,
   Target,
   UserCog,
-  UserSearch,
   Users,
   Wallet,
   Settings,
@@ -69,7 +67,6 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Bev News', icon: Newspaper, to: '/bev-news' },
       { label: 'Benchs', icon: Sparkles, to: '/benchs' },
       { label: 'FID / BevCoins', icon: Coins, to: '/fid' },
-      { label: 'Escritório Fechado', icon: DoorClosed, soon: true },
     ],
   },
   {
@@ -87,7 +84,6 @@ const GROUPS: ModuleGroup[] = [
       { label: 'Warnings', icon: Flag, to: '/warnings' },
       { label: 'Frequência', icon: ShieldCheck, to: '/frequencia' },
       { label: 'Pessoas', icon: Users, to: '/pessoas' },
-      { label: 'Banco de Talentos', icon: UserSearch, soon: true },
     ],
   },
   {
