@@ -53,5 +53,8 @@ create policy colab_delete on public.colab_faturamentos
   for delete to authenticated
   using (public.can_edit_dir_metrics((select auth.uid()), 'institucional'));
 
--- Projeto de impacto sai do painel geral.
-alter table public.bev_indicadores drop column if exists projeto_impacto;
+-- Projeto de impacto sai do painel geral. A coluna fica no banco por
+-- compatibilidade com a versao anterior em producao; remover depois do
+-- deploy com: alter table public.bev_indicadores drop column projeto_impacto;
+comment on column public.bev_indicadores.projeto_impacto is
+  'Descontinuado - removido da interface em 27/07/2026. Mantido so por compatibilidade.';
