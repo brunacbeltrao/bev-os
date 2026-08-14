@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Coins, Trophy, ShieldCheck, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle } from 'lucide-react'
+import { Coins, Trophy, ShieldCheck, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +26,9 @@ import {
   evaluateRequest,
   creditBevCoins,
   getEligibleMembers,
+  getLaunchedCredits,
+  deleteCredit,
+  updateCredit,
   CARGO_LABELS,
 } from '@/lib/fid'
 import {
@@ -503,6 +506,8 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
         </Card>
       )}
 
+      {canCredit && <LaunchedCreditsCard cycleId={cycleId} />}
+
       {canApprove && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
@@ -570,5 +575,159 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
         </Card>
       )}
     </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Créditos lançados — conferência, correção e estorno
+// ---------------------------------------------------------------------------
+function LaunchedCreditsCard({ cycleId }: { cycleId: string }) {
+  const qc = useQueryClient()
+  const { data, isLoading } = useQuery({
+    queryKey: ['bevcoins_launched', cycleId],
+    queryFn: () => getLaunchedCredits(cycleId),
+  })
+
+  const [editing, setEditing] = useState<string | null>(null)
+  const [editAmount, setEditAmount] = useState('')
+  const [editDesc, setEditDesc] = useState('')
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['bevcoins_launched', cycleId] })
+    qc.invalidateQueries({ queryKey: ['ranking', cycleId] })
+    qc.invalidateQueries({ queryKey: ['my_wallet', cycleId] })
+  }
+
+  const mutDelete = useMutation({
+    mutationFn: (id: string) => deleteCredit(id),
+    onSuccess: () => {
+      toast.success('Crédito estornado.')
+      invalidate()
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Não foi possível estornar.'),
+  })
+
+  const mutUpdate = useMutation({
+    mutationFn: () => updateCredit(editing!, Number(editAmount), editDesc),
+    onSuccess: () => {
+      toast.success('Crédito atualizado.')
+      setEditing(null)
+      invalidate()
+    },
+    onError: (e: any) => toast.error(e.message ?? 'Não foi possível atualizar.'),
+  })
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Créditos lançados neste ciclo</CardTitle>
+        <CardDescription>
+          Confira os lançamentos. Um crédito feito por engano pode ser corrigido ou estornado.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div>Carregando...</div>
+        ) : !data || data.length === 0 ? (
+          <div className="text-muted-foreground rounded-lg border border-dashed p-8 text-center">
+            Nenhum crédito lançado neste ciclo.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {data.map((tx) => (
+              <div key={tx.id} className="flex items-center justify-between rounded-lg border p-4">
+                <div className="flex items-center gap-4">
+                  <Avatar>
+                    <AvatarImage src={tx.people?.foto_url || undefined} />
+                    <AvatarFallback>
+                      {(tx.people?.nome ?? '??').substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col">
+                    <span className="font-semibold">{tx.people?.nome ?? 'Membro removido'}</span>
+                    <span className="text-muted-foreground text-sm">
+                      {tx.description} ·{' '}
+                      {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-bold text-green-600">
+                    + {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="Editar crédito"
+                      onClick={() => {
+                        setEditing(tx.id)
+                        setEditAmount(String(tx.amount))
+                        setEditDesc(tx.description)
+                      }}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="Estornar crédito"
+                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                      disabled={mutDelete.isPending}
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Estornar ${Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} BevCoins de ${tx.people?.nome ?? 'este membro'}? Esta ação não pode ser desfeita.`,
+                          )
+                        ) {
+                          mutDelete.mutate(tx.id)
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Corrigir crédito</DialogTitle>
+              <DialogDescription>Ajuste o valor ou a descrição do lançamento.</DialogDescription>
+            </DialogHeader>
+            <form
+              className="flex flex-col gap-4"
+              onSubmit={(e) => {
+                e.preventDefault()
+                mutUpdate.mutate()
+              }}
+            >
+              <div className="flex flex-col gap-2">
+                <Label>Descrição</Label>
+                <Input required value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label>Valor (BevCoins)</Label>
+                <Input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                />
+              </div>
+              <Button type="submit" disabled={mutUpdate.isPending}>
+                Salvar
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </CardContent>
+    </Card>
   )
 }

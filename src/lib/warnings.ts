@@ -75,3 +75,18 @@ export async function applyWarning(personId: string, flagId: string, justificati
     .insert({ person_id: personId, flag_id: flagId, justificativa, aplicado_por: aplicadoPor })
   if (error) throw error
 }
+
+/** Revoga uma advertência aplicada por engano (P&C). */
+export async function revokeWarning(warningId: string) {
+  const { error } = await supabase.from('warnings').delete().eq('id', warningId)
+  if (error) throw error
+}
+
+/** Corrige a justificativa/flag de uma advertência já aplicada. */
+export async function updateWarning(warningId: string, flagId: string, justificativa: string) {
+  const { error } = await supabase
+    .from('warnings')
+    .update({ flag_id: flagId, justificativa })
+    .eq('id', warningId)
+  if (error) throw error
+}

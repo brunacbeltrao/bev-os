@@ -1,23 +1,9 @@
 import { supabase } from '@/lib/supabase'
 
 export async function checkEventSubarea(
-  
   subareaId: string | null,
   meetingTypeSlug: string
 ) {
-  // Fetch system settings
-  const { data: settings } = await supabase
-    .from('system_settings')
-    .select('key, value')
-    .eq('key', 'require_subarea_for_ra')
-    .single()
-
-  const requireSubareaForRa = settings?.value === 'true'
-
-  if (meetingTypeSlug === 'ra' && requireSubareaForRa && !subareaId) {
-    throw new Error('BEV_OS_EVENTO_RA_SEM_SUBAREA: Reunião de Área exige uma subárea.')
-  }
-
   const isInstitucional = ['rg', 'rd', 'rl'].includes(meetingTypeSlug)
   if (isInstitucional && subareaId) {
     throw new Error('BEV_OS_EVENTO_SUBAREA_INDEVIDA: Eventos institucionais (RG/RD/RL) não devem ter subárea vinculada.')

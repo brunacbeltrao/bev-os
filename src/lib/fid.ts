@@ -136,6 +136,50 @@ export async function creditBevCoins(cycle_id: string, person_id: string, amount
   if (error) throw error
 }
 
+export interface LaunchedCredit {
+  id: string
+  amount: number
+  description: string
+  created_at: string
+  people: { id: string; nome: string; foto_url: string | null }
+}
+
+/** Créditos já lançados no ciclo — base da tela de conferência/estorno. */
+export async function getLaunchedCredits(cycle_id: string) {
+  const { data, error } = await supabase
+    .from('bevcoins_transactions')
+    .select(`id, amount, description, created_at,
+      people:person_id ( id, nome, foto_url )`)
+    .eq('cycle_id', cycle_id)
+    .eq('type', 'credit')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return (data ?? []) as unknown as LaunchedCredit[]
+}
+
+/** Estorna um crédito lançado por engano. Só quem lança crédito consegue (RLS). */
+export async function deleteCredit(tx_id: string) {
+  const { error } = await supabase
+    .from('bevcoins_transactions')
+    .delete()
+    .eq('id', tx_id)
+    .eq('type', 'credit')
+
+  if (error) throw error
+}
+
+/** Corrige valor/descrição de um crédito sem precisar estornar e relançar. */
+export async function updateCredit(tx_id: string, amount: number, description: string) {
+  const { error } = await supabase
+    .from('bevcoins_transactions')
+    .update({ amount, description })
+    .eq('id', tx_id)
+    .eq('type', 'credit')
+
+  if (error) throw error
+}
+
 /**
  * Membros que podem receber crédito.
  *

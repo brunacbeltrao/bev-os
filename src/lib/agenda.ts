@@ -1,7 +1,7 @@
 /**
- * Agenda / Reuniões (Onda 1 / ADD §3.2) — os 4 tipos oficiais do
+ * Agenda / Reuniões (Onda 1 / ADD §3.2) — os tipos oficiais do
  * Regimento: RG (mensal, todos), RD (semanal, diretores),
- * RL (semanal, lideranças), RA (semanal, todos da área).
+ * RL (semanal, lideranças).
  * Quem vê o quê é resolvido pelo RLS lendo occupations.
  */
 import { supabase } from './supabase'
@@ -11,7 +11,6 @@ export type MeetingSlug =
   | 'rg'
   | 'rd'
   | 'rl'
-  | 'ra'
   | 'capacitacao'
   | 'evento_mej'
   | 'coworking'
@@ -30,7 +29,6 @@ export const MEETING_LABELS: Record<MeetingSlug, string> = {
   rg: 'RG · Reunião Geral',
   rd: 'RD · Reunião de Diretoria',
   rl: 'RL · Reunião de Lideranças',
-  ra: 'RA · Reunião de Área',
   capacitacao: 'Capacitação',
   evento_mej: 'Evento MEJ',
   coworking: 'Coworking',
@@ -42,7 +40,6 @@ export const MEETING_CHIP: Record<MeetingSlug, string> = {
   rg: 'RG',
   rd: 'RD',
   rl: 'RL',
-  ra: 'RA',
   capacitacao: 'Capacitação',
   evento_mej: 'MEJ',
   coworking: 'Coworking',
@@ -54,7 +51,6 @@ export const MEETING_BADGE: Record<MeetingSlug, 'info' | 'danger' | 'warning' | 
   rg: 'info',
   rd: 'danger',
   rl: 'warning',
-  ra: 'success',
   capacitacao: 'info',
   evento_mej: 'warning',
   coworking: 'success',

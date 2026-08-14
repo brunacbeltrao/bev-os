@@ -15,7 +15,6 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppWarningsRouteImport } from './routes/_app/warnings'
 import { Route as AppVisaoGeralRouteImport } from './routes/_app/visao-geral'
-import { Route as AppReunioesRouteImport } from './routes/_app/reunioes'
 import { Route as AppProjetosRouteImport } from './routes/_app/projetos'
 import { Route as AppPlanejamentoRouteImport } from './routes/_app/planejamento'
 import { Route as AppPessoasRouteImport } from './routes/_app/pessoas'
@@ -72,11 +71,6 @@ const AppWarningsRoute = AppWarningsRouteImport.update({
 const AppVisaoGeralRoute = AppVisaoGeralRouteImport.update({
   id: '/visao-geral',
   path: '/visao-geral',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppReunioesRoute = AppReunioesRouteImport.update({
-  id: '/reunioes',
-  path: '/reunioes',
   getParentRoute: () => AppRoute,
 } as any)
 const AppProjetosRoute = AppProjetosRouteImport.update({
@@ -243,7 +237,6 @@ export interface FileRoutesByFullPath {
   '/pessoas': typeof AppPessoasRoute
   '/planejamento': typeof AppPlanejamentoRoute
   '/projetos': typeof AppProjetosRoute
-  '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
   '/assessor/$personId': typeof AppAssessorPersonIdRoute
@@ -278,7 +271,6 @@ export interface FileRoutesByTo {
   '/pessoas': typeof AppPessoasRoute
   '/planejamento': typeof AppPlanejamentoRoute
   '/projetos': typeof AppProjetosRoute
-  '/reunioes': typeof AppReunioesRoute
   '/visao-geral': typeof AppVisaoGeralRoute
   '/warnings': typeof AppWarningsRoute
   '/': typeof AppIndexRoute
@@ -316,7 +308,6 @@ export interface FileRoutesById {
   '/_app/pessoas': typeof AppPessoasRoute
   '/_app/planejamento': typeof AppPlanejamentoRoute
   '/_app/projetos': typeof AppProjetosRoute
-  '/_app/reunioes': typeof AppReunioesRoute
   '/_app/visao-geral': typeof AppVisaoGeralRoute
   '/_app/warnings': typeof AppWarningsRoute
   '/_app/': typeof AppIndexRoute
@@ -355,7 +346,6 @@ export interface FileRouteTypes {
     | '/pessoas'
     | '/planejamento'
     | '/projetos'
-    | '/reunioes'
     | '/visao-geral'
     | '/warnings'
     | '/assessor/$personId'
@@ -390,7 +380,6 @@ export interface FileRouteTypes {
     | '/pessoas'
     | '/planejamento'
     | '/projetos'
-    | '/reunioes'
     | '/visao-geral'
     | '/warnings'
     | '/'
@@ -427,7 +416,6 @@ export interface FileRouteTypes {
     | '/_app/pessoas'
     | '/_app/planejamento'
     | '/_app/projetos'
-    | '/_app/reunioes'
     | '/_app/visao-geral'
     | '/_app/warnings'
     | '/_app/'
@@ -491,13 +479,6 @@ declare module '@tanstack/react-router' {
       path: '/visao-geral'
       fullPath: '/visao-geral'
       preLoaderRoute: typeof AppVisaoGeralRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/reunioes': {
-      id: '/_app/reunioes'
-      path: '/reunioes'
-      fullPath: '/reunioes'
-      preLoaderRoute: typeof AppReunioesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/projetos': {
@@ -718,7 +699,6 @@ interface AppRouteChildren {
   AppPessoasRoute: typeof AppPessoasRoute
   AppPlanejamentoRoute: typeof AppPlanejamentoRoute
   AppProjetosRoute: typeof AppProjetosRoute
-  AppReunioesRoute: typeof AppReunioesRoute
   AppVisaoGeralRoute: typeof AppVisaoGeralRoute
   AppWarningsRoute: typeof AppWarningsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -753,7 +733,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppPessoasRoute: AppPessoasRoute,
   AppPlanejamentoRoute: AppPlanejamentoRoute,
   AppProjetosRoute: AppProjetosRoute,
-  AppReunioesRoute: AppReunioesRoute,
   AppVisaoGeralRoute: AppVisaoGeralRoute,
   AppWarningsRoute: AppWarningsRoute,
   AppIndexRoute: AppIndexRoute,

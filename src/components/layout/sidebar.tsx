@@ -9,7 +9,6 @@ import { Link, useLocation } from '@tanstack/react-router'
 import {
   BarChart3,
   BookOpen,
-  CalendarClock,
   CalendarDays,
   Coins,
   Compass,
@@ -56,7 +55,6 @@ const GROUPS: ModuleGroup[] = [
     items: [
       { label: 'Dashboards', icon: BarChart3, to: '/dashboards', onlyLeaders: true },
       { label: 'Calendário', icon: CalendarDays, to: '/agenda' },
-      { label: 'Reuniões de Área', icon: CalendarClock, to: '/reunioes' },
       { label: 'Avisos', icon: Megaphone, to: '/comunicados' },
       { label: 'BevSkills', icon: GraduationCap, to: '/bevskills' },
     ],
