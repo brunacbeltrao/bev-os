@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import {
   addKpi,
@@ -158,6 +159,7 @@ function ObjectiveCard({
   dirs: Directorate[]
   editavel: boolean
 }) {
+  const confirmar = useConfirm()
   const queryClient = useQueryClient()
   const inv = () => queryClient.invalidateQueries({ queryKey: ['objectives'] })
   const [novoOkr, setNovoOkr] = useState('')
@@ -210,7 +212,16 @@ function ObjectiveCard({
               variant="ghost"
               size="sm"
               className="text-red-600"
-              onClick={() => confirm('Excluir este objetivo?') && delMut.mutate()}
+              onClick={async () => {
+                if (
+                  await confirmar({
+                    titulo: 'Excluir este objetivo?',
+                    descricao: 'Os OKRs e KPIs vinculados a ele serão removidos.',
+                    destrutivo: true,
+                  })
+                )
+                  delMut.mutate()
+              }}
             >
               <Trash2 className="size-4" />
             </Button>

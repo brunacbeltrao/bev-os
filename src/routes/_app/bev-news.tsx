@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import {
   createNewsPost,
@@ -78,6 +79,7 @@ function PostComments({ post }: { post: NewsPost }) {
 }
 
 function BevNewsPage() {
+  const confirmar = useConfirm()
   const { person } = useApp()
   const queryClient = useQueryClient()
   const [texto, setTexto] = useState('')
@@ -195,8 +197,15 @@ function BevNewsPage() {
                         size="icon"
                         variant="ghost"
                         className="text-muted-foreground size-7 shrink-0"
-                        onClick={() => {
-                          if (confirm('Excluir esta publicação?')) deleteMut.mutate(post.id)
+                        onClick={async () => {
+                          if (
+                            await confirmar({
+                              titulo: 'Excluir esta publicação?',
+                              descricao: 'Os comentários e reações também serão removidos.',
+                              destrutivo: true,
+                            })
+                          )
+                            deleteMut.mutate(post.id)
                         }}
                         aria-label="Excluir publicação"
                       >

@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import {
   createAnnouncement,
@@ -142,6 +143,7 @@ function NovoAvisoDialog() {
 }
 
 function AvisoDetail({ announcement }: { announcement: Announcement }) {
+  const confirmar = useConfirm()
   const { person, isDirex } = useApp()
   const queryClient = useQueryClient()
   const podeGerenciar = isDirex || announcement.autor_id === person.id
@@ -238,7 +240,10 @@ function AvisoDetail({ announcement }: { announcement: Announcement }) {
                 variant="ghost"
                 className="text-red-600"
                 aria-label="Excluir"
-                onClick={() => confirm('Excluir este aviso?') && deleteMut.mutate()}
+                onClick={async () => {
+                  if (await confirmar({ titulo: 'Excluir este aviso?', destrutivo: true }))
+                    deleteMut.mutate()
+                }}
               >
                 <Trash2 className="size-4" />
               </Button>

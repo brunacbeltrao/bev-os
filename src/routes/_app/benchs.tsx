@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import * as B from '@/lib/benchs'
 import { fmtDate, useContextScope } from '@/lib/use-context-scope'
@@ -417,6 +418,7 @@ function Bloco({ titulo, texto }: { titulo: string; texto: string | null }) {
 }
 
 function BenchDetail({ bench }: { bench: B.Bench }) {
+  const confirmar = useConfirm()
   const { person } = useApp()
   const { leadsSubarea } = useContextScope()
   const qc = useQueryClient()
@@ -461,8 +463,15 @@ function BenchDetail({ bench }: { bench: B.Bench }) {
             size="icon"
             variant="ghost"
             aria-label="Excluir bench"
-            onClick={() => {
-              if (confirm('Excluir este bench e sua documentação?')) delMut.mutate()
+            onClick={async () => {
+              if (
+                await confirmar({
+                  titulo: 'Excluir este bench?',
+                  descricao: 'A documentação e os participantes registrados serão removidos.',
+                  destrutivo: true,
+                })
+              )
+                delMut.mutate()
             }}
           >
             <Trash2 className="size-4" />

@@ -47,6 +47,7 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Segmented } from '@/components/ui/segmented'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import { useAllSubareas, fmtDate } from '@/lib/use-context-scope'
 import { isGestaoLideranca } from '@/lib/permissions'
@@ -135,6 +136,7 @@ function FinanceiroPage() {
 type FiltroTipo = 'todos' | F.FinanceTipo
 
 function CaixaTab({ podeGerir }: { podeGerir: boolean }) {
+  const confirmar = useConfirm()
   const { person, cycle } = useApp()
   const qc = useQueryClient()
   const subareasQ = useAllSubareas()
@@ -554,8 +556,15 @@ function CaixaTab({ podeGerir }: { podeGerir: boolean }) {
                   variant="ghost"
                   size="sm"
                   className="text-muted-foreground"
-                  onClick={() => {
-                    if (confirm('Excluir este lançamento?')) delMut.mutate(e.id)
+                  onClick={async () => {
+                    if (
+                      await confirmar({
+                        titulo: 'Excluir este lançamento?',
+                        descricao: 'O saldo do caixa será recalculado.',
+                        destrutivo: true,
+                      })
+                    )
+                      delMut.mutate(e.id)
                   }}
                 >
                   <Trash2 className="size-4" />
@@ -875,6 +884,7 @@ function SolicitacoesTab() {
 // ===========================================================================
 
 function MinhasTab() {
+  const confirmar = useConfirm()
   const { person, cycle } = useApp()
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -1058,8 +1068,16 @@ function MinhasTab() {
                     variant="ghost"
                     size="sm"
                     className="text-muted-foreground"
-                    onClick={() => {
-                      if (confirm('Cancelar esta solicitação?')) cancelMut.mutate(r.id)
+                    onClick={async () => {
+                      if (
+                        await confirmar({
+                          titulo: 'Cancelar esta solicitação?',
+                          confirmar: 'Cancelar solicitação',
+                          cancelar: 'Voltar',
+                          destrutivo: true,
+                        })
+                      )
+                        cancelMut.mutate(r.id)
                     }}
                   >
                     <Trash2 className="size-4" />

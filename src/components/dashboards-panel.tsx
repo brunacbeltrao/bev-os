@@ -32,6 +32,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import { fmtBRL } from '@/lib/financeiro'
 import { MiniLineChart, type LinePoint } from '@/components/mini-line-chart'
@@ -195,6 +196,7 @@ function GeralSection() {
 // Negócios — Faturamento vs meta BJ + ticket médio + conversão
 // ============================================================
 function ContratosDialog({ ano }: { ano: number }) {
+  const confirmar = useConfirm()
   const { person, cycle } = useApp()
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -260,7 +262,14 @@ function ContratosDialog({ ano }: { ano: number }) {
   }
 
   async function remover(id: string) {
-    if (!confirm('Excluir este contrato? O faturamento será recalculado.')) return
+    if (
+      !(await confirmar({
+        titulo: 'Excluir este contrato?',
+        descricao: 'O faturamento do ano será recalculado.',
+        destrutivo: true,
+      }))
+    )
+      return
     try {
       await C.deleteContrato(id)
       qc.invalidateQueries({ queryKey: ['contratos', ano] })
@@ -693,6 +702,7 @@ function PcSection({ canEdit }: { canEdit: boolean }) {
 // ============================================================
 /** Registro de colaborações: serviço, EJ parceira, valor total e valor BEV. */
 function ColabDialog() {
+  const confirmar = useConfirm()
   const { person, cycle } = useApp()
   const qc = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -768,7 +778,14 @@ function ColabDialog() {
   }
 
   async function remover(id: string) {
-    if (!confirm('Excluir esta colaboração? O faturamento será recalculado.')) return
+    if (
+      !(await confirmar({
+        titulo: 'Excluir esta colaboração?',
+        descricao: 'O faturamento do ciclo será recalculado.',
+        destrutivo: true,
+      }))
+    )
+      return
     try {
       await CL.deleteColabFaturamento(id)
       qc.invalidateQueries({ queryKey: ['colab-faturamentos', cycle.id] })

@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import {
   atualizarAula,
@@ -59,6 +60,7 @@ const FONTES: VideoFonte[] = ['youtube', 'drive', 'vimeo', 'loom']
 const TIPOS: ResourceTipo[] = ['arquivo', 'canva', 'miro', 'notion', 'drive', 'link']
 
 export function CursoEditor({ courseId, onVoltar }: { courseId: string; onVoltar: () => void }) {
+  const confirmar = useConfirm()
   const qc = useQueryClient()
   const { person } = useApp()
   const [aulaAberta, setAulaAberta] = useState<BevLesson | null>(null)
@@ -310,8 +312,14 @@ export function CursoEditor({ courseId, onVoltar }: { courseId: string; onVoltar
                         <button
                           type="button"
                           aria-label="Excluir módulo"
-                          onClick={() => {
-                            if (confirm(`Excluir o módulo "${m.titulo}" e suas aulas?`))
+                          onClick={async () => {
+                            if (
+                              await confirmar({
+                                titulo: `Excluir o módulo "${m.titulo}"?`,
+                                descricao: 'As aulas dentro dele também serão excluídas.',
+                                destrutivo: true,
+                              })
+                            )
                               apagarModuloMut.mutate(m.id)
                           }}
                           className="text-muted-foreground hover:text-destructive shrink-0"
@@ -351,8 +359,14 @@ export function CursoEditor({ courseId, onVoltar }: { courseId: string; onVoltar
                                 <button
                                   type="button"
                                   aria-label="Excluir aula"
-                                  onClick={() => {
-                                    if (confirm(`Excluir a aula "${a.titulo}"?`)) apagarAulaMut.mutate(a.id)
+                                  onClick={async () => {
+                                    if (
+                                      await confirmar({
+                                        titulo: `Excluir a aula "${a.titulo}"?`,
+                                        destrutivo: true,
+                                      })
+                                    )
+                                      apagarAulaMut.mutate(a.id)
                                   }}
                                   className="text-muted-foreground hover:text-destructive shrink-0"
                                 >
@@ -394,8 +408,15 @@ export function CursoEditor({ courseId, onVoltar }: { courseId: string; onVoltar
           variant="ghost"
           size="sm"
           className="text-muted-foreground hover:text-destructive"
-          onClick={() => {
-            if (confirm(`Excluir o curso "${curso.titulo}" com todo o conteúdo?`)) excluirMut.mutate()
+          onClick={async () => {
+            if (
+              await confirmar({
+                titulo: `Excluir o curso "${curso.titulo}"?`,
+                descricao: 'Todos os módulos, aulas e o progresso de quem já fez o curso serão perdidos.',
+                destrutivo: true,
+              })
+            )
+              excluirMut.mutate()
           }}
         >
           <Trash2 className="size-4" />

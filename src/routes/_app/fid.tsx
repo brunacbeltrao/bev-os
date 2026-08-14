@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import {
   Dialog,
   DialogContent,
@@ -582,6 +583,7 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
 // Créditos lançados — conferência, correção e estorno
 // ---------------------------------------------------------------------------
 function LaunchedCreditsCard({ cycleId }: { cycleId: string }) {
+  const confirmar = useConfirm()
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({
     queryKey: ['bevcoins_launched', cycleId],
@@ -674,11 +676,14 @@ function LaunchedCreditsCard({ cycleId }: { cycleId: string }) {
                       aria-label="Estornar crédito"
                       className="text-red-600 hover:bg-red-50 hover:text-red-700"
                       disabled={mutDelete.isPending}
-                      onClick={() => {
+                      onClick={async () => {
                         if (
-                          confirm(
-                            `Estornar ${Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} BevCoins de ${tx.people?.nome ?? 'este membro'}? Esta ação não pode ser desfeita.`,
-                          )
+                          await confirmar({
+                            titulo: `Estornar ${Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} BevCoins?`,
+                            descricao: `O crédito de ${tx.people?.nome ?? 'este membro'} será removido do saldo e do ranking. Esta ação não pode ser desfeita.`,
+                            confirmar: 'Estornar',
+                            destrutivo: true,
+                          })
                         ) {
                           mutDelete.mutate(tx.id)
                         }

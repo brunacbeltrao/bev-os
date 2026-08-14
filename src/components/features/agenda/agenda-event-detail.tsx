@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import { fmtDate } from '@/lib/use-context-scope'
 import { initials } from '@/lib/utils'
@@ -105,6 +106,7 @@ interface EventDetailProps {
 }
 
 export function AgendaEventDetail({ event, dirNome, dirs }: EventDetailProps) {
+  const confirmar = useConfirm()
   const { person, isDirex } = useApp()
   const canManage = isDirex || event.criado_por === person.id
   
@@ -144,7 +146,16 @@ export function AgendaEventDetail({ event, dirNome, dirs }: EventDetailProps) {
                 size="icon"
                 variant="ghost"
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                onClick={() => confirm('Excluir este compromisso?') && deleteMut.mutate(event.id)}
+                onClick={async () => {
+                  if (
+                    await confirmar({
+                      titulo: 'Excluir este compromisso?',
+                      descricao: event.titulo ?? undefined,
+                      destrutivo: true,
+                    })
+                  )
+                    deleteMut.mutate(event.id)
+                }}
               >
                 <Trash2 className="size-4" />
               </Button>

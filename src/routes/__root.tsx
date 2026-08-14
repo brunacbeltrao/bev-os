@@ -1,6 +1,7 @@
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 import type { QueryClient } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
+import { ConfirmProvider } from '@/components/ui/confirm-dialog'
 import appCss from '../styles.css?url'
 
 // Aplica o tema antes do primeiro paint (evita flash claro→escuro).
@@ -44,7 +45,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
         <Toaster richColors position="top-center" />
         <Scripts />
       </body>

@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { useApp } from '@/lib/app-context'
 import { useAllSubareas, fmtDate } from '@/lib/use-context-scope'
 import {
@@ -30,6 +31,7 @@ export const Route = createFileRoute('/_app/memoria')({ component: MemoriaPage }
 const emptyForm = { titulo: '', tipo: 'pop' as MemoryTipo, subarea_id: '', conteudo: '' }
 
 function MemoriaPage() {
+  const confirmar = useConfirm()
   const { person, occupations, isDirex } = useApp()
   const queryClient = useQueryClient()
   const subareasQ = useAllSubareas()
@@ -267,8 +269,15 @@ function MemoriaPage() {
                         variant="ghost"
                         size="sm"
                         className="text-red-600"
-                        onClick={() => {
-                          if (confirm('Excluir este documento?')) delMut.mutate(selecionado.id)
+                        onClick={async () => {
+                          if (
+                            await confirmar({
+                              titulo: 'Excluir este documento?',
+                              descricao: selecionado.titulo,
+                              destrutivo: true,
+                            })
+                          )
+                            delMut.mutate(selecionado.id)
                         }}
                       >
                         <Trash2 className="size-4" />
