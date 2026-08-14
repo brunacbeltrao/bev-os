@@ -7,10 +7,11 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Flag } from 'lucide-react'
+import { Flag, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useConfirm } from '@/components/ui/confirm-dialog'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +19,7 @@ import { useApp } from '@/lib/app-context'
 import { getDirectory } from '@/lib/org'
 import {
   applyWarning,
+  revokeWarning,
   getFlags,
   getMyProbation,
   getTotals,
@@ -33,6 +35,7 @@ function WarningsPage() {
   const { person, cycle, occupations } = useApp()
   const { allSubareas } = useContextScope()
   const queryClient = useQueryClient()
+  const confirmar = useConfirm()
 
   const pc = allSubareas.find((s) => s.slug === 'pessoas_cultura')
   const souPC = occupations.some((o) => o.subarea.slug === 'pessoas_cultura')
@@ -90,6 +93,17 @@ function WarningsPage() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['warnings'] })
       queryClient.invalidateQueries({ queryKey: ['warning-totals'] })
+    },
+  })
+
+  // Revogação: a cadeia de agravos e probatório é recalculada pelo banco,
+  // então basta invalidar os totais depois de apagar.
+  const revokeMut = useMutation({
+    mutationFn: (id: string) => revokeWarning(id),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['warnings'] })
+      queryClient.invalidateQueries({ queryKey: ['warning-totals'] })
+      queryClient.invalidateQueries({ queryKey: ['my-probation'] })
     },
   })
 
@@ -222,9 +236,38 @@ function WarningsPage() {
                   <span className="text-muted-foreground ml-auto text-xs">{fmtDate(w.created_at)}</span>
                 </div>
                 <p className="text-sm">{w.justificativa}</p>
-                {w.aplicador && (
-                  <p className="text-muted-foreground text-xs">Aplicada por {w.aplicador.nome}</p>
-                )}
+                <div className="flex items-end justify-between gap-2">
+                  {w.aplicador ? (
+                    <p className="text-muted-foreground text-xs">Aplicada por {w.aplicador.nome}</p>
+                  ) : (
+                    <span />
+                  )}
+                  {souPC && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      aria-label="Revogar advertência"
+                      className="text-muted-foreground hover:text-destructive -mb-1 gap-1.5"
+                      disabled={revokeMut.isPending}
+                      onClick={async () => {
+                        if (
+                          await confirmar({
+                            titulo: 'Revogar esta advertência?',
+                            descricao: `${FLAG_LABELS[w.flag.cor]} de ${w.flag.pontos} pontos${
+                              w.pessoa ? ` aplicada a ${w.pessoa.nome}` : ''
+                            }. Os pontos voltam, e agravos ou probatório gerados por ela são recalculados pelo banco.`,
+                            confirmar: 'Revogar',
+                            destrutivo: true,
+                          })
+                        )
+                          revokeMut.mutate(w.id)
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                      Revogar
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))

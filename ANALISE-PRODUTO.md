@@ -28,17 +28,25 @@ Esse é o item que eu faria primeiro se fosse escolher um só.
 
 ---
 
-## 2. O menu não respeita a hierarquia que vocês construíram
+## 2. ~~O menu não respeita a hierarquia~~ — **eu estava errado**
 
-A sidebar tem **15 itens** e apenas **dois** são filtrados por cargo (`onlyLeaders`): Dashboards e Meus Liderados.
+> **Correção.** A versão original deste documento dizia que a sidebar mostra 15 itens sem filtrar por cargo, e propunha esconder Financeiro, Warnings, Frequência, Pessoas e Memória de quem não é liderança. **Fui verificar antes de implementar e a proposta estava errada.**
 
-Então um assessor recém-chegado vê, no mesmo nível: Planejamento Estratégico, Financeiro, Warnings, Frequência, Pessoas, Memória Institucional. Ele pode clicar em todos. O RLS vai barrar a maioria — e, pelo item 1, o resultado é uma sequência de telas vazias.
+Cada uma dessas telas tem uma seção para o membro comum, gated por dentro:
 
-Vocês modelaram uma hierarquia rica (Diretor → Gerente → Coordenador → Analista de Área → Assessor, cinco diretorias, híbridos) e ela está toda no banco, mas **não chegou na navegação**. O menu trata todo mundo igual e delega a diferenciação pro RLS, que não tem como conversar com o usuário.
+| Tela | O que o assessor faz nela |
+|---|---|
+| Financeiro | aba **"Minhas solicitações"** — pede reembolso |
+| Frequência | aba **"Minhas justificativas"** — justifica ausência |
+| Warnings | **"Minha situação"** — vê a própria pontuação |
+| Pessoas | diretório de membros, aberto por natureza |
+| Memória Institucional | base de conhecimento, aberta por natureza |
 
-**Ideia:** o `permissions.ts` já tem `isLideranca`, `isDirex`, `isPc`, `canLaunchBevCoins`. Dá pra estender o `onlyLeaders` para um campo mais expressivo — `visivelPara: (occ) => boolean` — e esconder o que a pessoa não pode usar. Um assessor com 6 ou 7 itens tem um sistema que parece feito pra ele; com 15, tem um sistema que parece de outra pessoa.
+O padrão adotado é melhor que o que eu propus: **a tela é a mesma para todos e revela mais conforme o cargo.** Esconder o item do menu teria removido funcionalidade de quem mais precisa dela — justamente o assessor.
 
-Isso também resolve metade do problema do item 1 sem escrever tratamento de erro nenhum.
+O comentário no topo do `sidebar.tsx` já dizia isso ("o contexto muda o ESCOPO dos dados, não a lista de módulos") e era uma decisão de Blueprint, não um descuido. Nada foi alterado aqui.
+
+**O que sobra de verdadeiro:** o único caso plausível de item que não serve a membro comum é Planejamento Estratégico. Mesmo assim, transparência de OKRs costuma ser desejável numa EJ — então é decisão de produto, não correção.
 
 ---
 
@@ -104,12 +112,22 @@ Coisas que o código sugere, mas que são decisão de vocês:
 
 ---
 
-## Se eu tivesse que escolher cinco
+## Situação da lista
 
-1. **Error boundary + tratamento de erro nas queries** — hoje todo problema vira tela em branco.
-2. **Filtrar a sidebar por cargo** — resolve metade do item 1 e faz o sistema parecer feito pra cada pessoa.
-3. **Ligar os botões de revogar advertência** — dado disciplinar sem correção é risco real.
-4. **`<ConfirmDialog>` no lugar dos 14 `confirm()`** — melhor custo-benefício da lista.
-5. **Índices nas FKs** — barato agora, caro depois.
+| Item | Situação |
+|---|---|
+| Error boundary + tratamento de erro nas 116 queries | ✅ **em produção** (`b3499fa`) |
+| `<ConfirmDialog>` no lugar dos 14 `confirm()` nativos | ✅ **em produção** (`f4ac432`) |
+| Revogar advertência — camada de dados, UI e policy de RLS | ✅ **feito** |
+| Índices nas chaves estrangeiras | ✅ **89 criados**, nenhuma FK descoberta |
+| Filtrar a sidebar por cargo | ❌ **descartado** — a proposta estava errada, ver item 2 |
+| `delete` em `comercial`, `demandas`, `pdi`, `direx`, `frequencia` | ⬜ pendente |
+| Tipos gerados do Supabase no lugar dos 54 `any` | ⬜ pendente |
 
-Os dois primeiros são a mesma doença vista de ângulos diferentes: **o sistema sabe mais do que conta pra quem está usando.**
+---
+
+## Comercial — estado atual
+
+Os dados de 2026 foram alimentados a partir do Portal BJ (`Bev_Comercial_2026.xlsx`): **24 contratos, R$ 46.019**, faturamento mensal conferido mês a mês contra a planilha. A tabela `contrato_servicos` permite vários serviços por contrato, como o Portal contabiliza.
+
+O ranking de serviços ainda não fecha com o Portal (21 vínculos aqui contra 31 lá) porque falta a exportação das ações colaborativas por contrato. Detalhes e decisões pendentes em `DIVERGENCIAS-COMERCIAL.md`.
