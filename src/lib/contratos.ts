@@ -17,6 +17,21 @@ export const SEGMENTO_CONTRATO_LABELS: Record<ContratoSegmento, string> = {
   outro: 'Outro',
 }
 
+export type ContratoStatus = 'aprovado' | 'distratado' | 'pendente'
+
+export const STATUS_CONTRATO_LABELS: Record<ContratoStatus, string> = {
+  aprovado: 'Aprovado',
+  distratado: 'Distratado',
+  pendente: 'Pendente',
+}
+
+/** Só 'aprovado' entra no faturamento — igual ao total ajustado do Portal BJ. */
+export const STATUS_CONTRATO_BADGE: Record<ContratoStatus, 'success' | 'danger' | 'warning'> = {
+  aprovado: 'success',
+  distratado: 'danger',
+  pendente: 'warning',
+}
+
 export interface Contrato {
   id: string
   cycle_id: string
@@ -26,6 +41,8 @@ export interface Contrato {
   servico_id: string | null
   responsavel_id: string | null
   segmento: ContratoSegmento
+  status: ContratoStatus
+  distratado_em: string | null
   observacoes: string | null
   criado_por: string
   created_at: string
@@ -55,6 +72,8 @@ export interface ContratoInput {
   servico_id?: string | null
   responsavel_id?: string | null
   segmento: ContratoSegmento
+  status?: ContratoStatus
+  distratado_em?: string | null
   observacoes?: string | null
 }
 

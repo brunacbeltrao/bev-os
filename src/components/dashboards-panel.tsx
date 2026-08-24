@@ -368,15 +368,35 @@ function ContratosDialog({ ano }: { ano: number }) {
               contratos.map((c) => (
                 <div key={c.id} className="flex items-center gap-3 rounded-lg border p-2.5 text-sm">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{c.cliente}</p>
+                    <p
+                      className={`truncate font-medium ${c.status === 'distratado' ? 'text-muted-foreground line-through' : ''}`}
+                    >
+                      {c.cliente}
+                    </p>
                     <p className="text-muted-foreground text-xs">
                       {new Date(c.data_fechamento + 'T12:00:00').toLocaleDateString('pt-BR')}
                       {c.servico ? ` · ${c.servico.nome}` : ''}
                       {c.responsavel ? ` · ${c.responsavel.nome}` : ''}
+                      {c.status === 'distratado' &&
+                        c.distratado_em &&
+                        ` · distratado em ${new Date(c.distratado_em + 'T12:00:00').toLocaleDateString('pt-BR')}`}
                     </p>
                   </div>
+                  {c.status !== 'aprovado' && (
+                    <Badge variant={C.STATUS_CONTRATO_BADGE[c.status]}>
+                      {C.STATUS_CONTRATO_LABELS[c.status]}
+                    </Badge>
+                  )}
                   <Badge variant="secondary">{C.SEGMENTO_CONTRATO_LABELS[c.segmento]}</Badge>
-                  <span className="font-semibold">{fmtBRL(Number(c.valor))}</span>
+                  <span
+                    className={
+                      c.status === 'distratado'
+                        ? 'text-muted-foreground font-semibold line-through'
+                        : 'font-semibold'
+                    }
+                  >
+                    {fmtBRL(Number(c.valor))}
+                  </span>
                   <Button
                     size="icon"
                     variant="ghost"
