@@ -209,7 +209,10 @@ function ContratosDialog({ ano }: { ano: number }) {
   const [servicoId, setServicoId] = useState('')
   const [responsavelId, setResponsavelId] = useState('')
   const [segmento, setSegmento] = useState<C.ContratoSegmento>('pme')
+  const [status, setStatus] = useState<C.ContratoStatus>('aprovado')
   const [obs, setObs] = useState('')
+  /** null = criando; id = editando aquele contrato */
+  const [editandoId, setEditandoId] = useState<string | null>(null)
 
   const contratosQ = useQuery({
     queryKey: ['contratos', ano],
@@ -230,7 +233,23 @@ function ContratosDialog({ ano }: { ano: number }) {
     setServicoId('')
     setResponsavelId('')
     setSegmento('pme')
+    setStatus('aprovado')
     setObs('')
+    setEditandoId(null)
+  }
+
+  /** Carrega um contrato existente no formulário. */
+  function editar(c: C.Contrato) {
+    setEditandoId(c.id)
+    setCliente(c.cliente)
+    setValor(String(c.valor))
+    setData(c.data_fechamento)
+    setServicoId(c.servico_id ?? '')
+    setResponsavelId(c.responsavel_id ?? '')
+    setSegmento(c.segmento)
+    setStatus(c.status)
+    setObs(c.observacoes ?? '')
+    setErro(null)
   }
 
   async function submit(e: React.FormEvent) {
@@ -239,21 +258,27 @@ function ContratosDialog({ ano }: { ano: number }) {
     setSalvando(true)
     setErro(null)
     try {
-      await C.createContrato(
-        {
-          cliente: cliente.trim(),
-          valor: num(valor),
-          data_fechamento: data,
-          servico_id: servicoId || null,
-          responsavel_id: responsavelId || null,
-          segmento,
-          observacoes: obs.trim() || null,
-        },
-        person.id,
-      )
+      const dados = {
+        cliente: cliente.trim(),
+        valor: num(valor),
+        data_fechamento: data,
+        servico_id: servicoId || null,
+        responsavel_id: responsavelId || null,
+        segmento,
+        status,
+        // sai de distratado -> a data do distrato deixa de fazer sentido
+        distratado_em: status === 'distratado' ? undefined : null,
+        observacoes: obs.trim() || null,
+      }
+      if (editandoId) {
+        await C.updateContrato(editandoId, dados)
+      } else {
+        await C.createContrato(dados, person.id)
+      }
       limpar()
       qc.invalidateQueries({ queryKey: ['contratos', ano] })
       qc.invalidateQueries({ queryKey: ['fat-mensal', ano] })
+      qc.invalidateQueries({ queryKey: ['contratos-bevcoins'] })
     } catch {
       setErro('Não foi possível salvar o contrato. Confirme se você tem permissão em Negócios.')
     } finally {
@@ -280,7 +305,9 @@ function ContratosDialog({ ano }: { ano: number }) {
   }
 
   const contratos = contratosQ.data ?? []
-  const total = contratos.reduce((s, c) => s + Number(c.valor), 0)
+  const total = contratos
+    .filter((c) => c.status === 'aprovado')
+    .reduce((s, c) => s + Number(c.valor), 0)
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -338,16 +365,33 @@ function ContratosDialog({ ano }: { ano: number }) {
                 </Select>
               </Field>
             </div>
-            <div className="col-span-2">
-              <Field label="Observações">
-                <Input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
-              </Field>
-            </div>
+            <Field label="Status">
+              <Select value={status} onChange={(e) => setStatus(e.target.value as C.ContratoStatus)}>
+                {Object.entries(C.STATUS_CONTRATO_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Observações">
+              <Input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Opcional" />
+            </Field>
+            {status === 'distratado' && (
+              <p className="text-muted-foreground col-span-2 -mt-1 text-xs">
+                Contrato distratado permanece no histórico, mas sai do faturamento do ano.
+              </p>
+            )}
             {erro && <p className="col-span-2 text-sm text-red-600">{erro}</p>}
-            <div className="col-span-2">
-              <Button type="submit" disabled={salvando} className="w-full">
-                {salvando ? 'Salvando…' : 'Registrar contrato'}
+            <div className="col-span-2 flex gap-2">
+              <Button type="submit" disabled={salvando} className="flex-1">
+                {salvando ? 'Salvando…' : editandoId ? 'Salvar alterações' : 'Registrar contrato'}
               </Button>
+              {editandoId && (
+                <Button type="button" variant="outline" onClick={limpar} disabled={salvando}>
+                  Cancelar
+                </Button>
+              )}
             </div>
           </form>
 
@@ -400,7 +444,15 @@ function ContratosDialog({ ano }: { ano: number }) {
                   <Button
                     size="icon"
                     variant="ghost"
-                    aria-label="Excluir contrato"
+                    aria-label={`Editar contrato de ${c.cliente}`}
+                    onClick={() => editar(c)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    aria-label={`Excluir contrato de ${c.cliente}`}
                     onClick={() => remover(c.id)}
                   >
                     <Trash2 className="size-4" />

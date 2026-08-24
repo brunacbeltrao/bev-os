@@ -123,7 +123,13 @@ export async function evaluateRequest(tx_id: string, new_status: 'approved' | 'r
   if (error) throw error
 }
 
-export async function creditBevCoins(cycle_id: string, person_id: string, amount: number, description: string) {
+export async function creditBevCoins(
+  cycle_id: string,
+  person_id: string,
+  amount: number,
+  description: string,
+  contrato_id?: string | null,
+) {
   const { error } = await supabase.from('bevcoins_transactions').insert({
     person_id,
     cycle_id,
@@ -131,9 +137,60 @@ export async function creditBevCoins(cycle_id: string, person_id: string, amount
     amount,
     description,
     status: 'approved',
+    contrato_id: contrato_id ?? null,
   })
 
   if (error) throw error
+}
+
+export interface ContratoParaCredito {
+  id: string
+  cliente: string
+  valor: number
+  data_fechamento: string
+  /** quanto já foi creditado em BevCoins a partir deste contrato */
+  ja_creditado: number
+}
+
+/**
+ * Contratos aprovados do ciclo, com o quanto cada um já rendeu de BevCoins.
+ *
+ * O lançamento passa a partir daqui em vez de digitar o nome do contrato:
+ * o valor vem do registro real e dá para ver o que já foi distribuído,
+ * evitando creditar o mesmo contrato duas vezes sem perceber.
+ */
+export async function getContratosParaCredito(ano: number): Promise<ContratoParaCredito[]> {
+  const [{ data: contratos, error: e1 }, { data: creditos, error: e2 }] = await Promise.all([
+    supabase
+      .from('contratos')
+      .select('id, cliente, valor, data_fechamento')
+      .eq('status', 'aprovado')
+      .gte('data_fechamento', `${ano}-01-01`)
+      .lte('data_fechamento', `${ano}-12-31`)
+      .order('data_fechamento', { ascending: false }),
+    supabase
+      .from('bevcoins_transactions')
+      .select('contrato_id, amount')
+      .eq('type', 'credit')
+      .not('contrato_id', 'is', null),
+  ])
+
+  if (e1) throw e1
+  if (e2) throw e2
+
+  const porContrato = new Map<string, number>()
+  for (const c of creditos ?? []) {
+    const id = (c as { contrato_id: string }).contrato_id
+    porContrato.set(id, (porContrato.get(id) ?? 0) + Number((c as { amount: number }).amount))
+  }
+
+  return (contratos ?? []).map((c) => ({
+    id: c.id as string,
+    cliente: c.cliente as string,
+    valor: Number(c.valor),
+    data_fechamento: c.data_fechamento as string,
+    ja_creditado: porContrato.get(c.id as string) ?? 0,
+  }))
 }
 
 export interface LedgerTx {

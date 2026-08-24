@@ -27,6 +27,7 @@ import {
   evaluateRequest,
   creditBevCoins,
   getEligibleMembers,
+  getContratosParaCredito,
   getCycleLedger,
   buildBalances,
   deleteCredit,
@@ -359,22 +360,30 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
 
   const [openCredit, setOpenCredit] = useState(false)
   const [personId, setPersonId] = useState('')
-  const [contractValue, setContractValue] = useState('')
-  const [desc, setDesc] = useState('')
+  const [contratoId, setContratoId] = useState('')
   const [participation, setParticipation] = useState('100')
 
-  // O sistema calcula sozinho: Valor * (Participação/100) * 0.0625
-  const calculatedBevCoins = (Number(contractValue) * (Number(participation)/100)) * 0.0625
+  const anoAtual = new Date().getFullYear()
+  const { data: contratos } = useQuery({
+    queryKey: ['contratos-bevcoins', anoAtual],
+    queryFn: () => getContratosParaCredito(anoAtual),
+    enabled: canCredit,
+  })
+
+  const contrato = (contratos ?? []).find((c) => c.id === contratoId)
+  const desc = contrato?.cliente ?? ''
+
+  // O sistema calcula sozinho: valor do contrato * (participação/100) * 0.0625
+  const calculatedBevCoins = ((contrato?.valor ?? 0) * (Number(participation) / 100)) * 0.0625
 
   const mutCredit = useMutation({
-    mutationFn: () => creditBevCoins(cycleId, personId, calculatedBevCoins, desc),
+    mutationFn: () => creditBevCoins(cycleId, personId, calculatedBevCoins, desc, contratoId),
     onSuccess: () => {
       toast.success('Crédito lançado com sucesso!')
       setOpenCredit(false)
       setPersonId('')
-      setContractValue('')
+      setContratoId('')
       setParticipation('100')
-      setDesc('')
       qc.invalidateQueries({ queryKey: ['fid_ranking'] })
       qc.invalidateQueries({ queryKey: ['my_wallet'] })
       qc.invalidateQueries({ queryKey: ['fid_ledger'] })
@@ -458,29 +467,52 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
                     )}
                   </div>
                   <div className="flex flex-col gap-2">
-                    <Label>Nome do Contrato / Cliente</Label>
-                    <Input
+                    <Label>Contrato fechado</Label>
+                    <select
                       required
-                      value={desc}
-                      onChange={(e) => setDesc(e.target.value)}
-                      placeholder="Ex: Consultoria ABC"
-                    />
+                      className="border-input bg-card focus-visible:border-ring focus-visible:ring-ring/40 h-9 rounded-md border px-3 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-2"
+                      value={contratoId}
+                      onChange={(e) => setContratoId(e.target.value)}
+                    >
+                      <option value="">Selecionar contrato…</option>
+                      {(contratos ?? []).map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.cliente} — {c.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {c.ja_creditado > 0
+                            ? ` (já creditado: ${c.ja_creditado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })})`
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {contratos && contratos.length === 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        Nenhum contrato aprovado em {anoAtual}. Registre o contrato primeiro em
+                        Dashboards → Negócios → Contratos.
+                      </p>
+                    )}
+                    {contrato && contrato.ja_creditado > 0 && (
+                      <p className="text-xs text-amber-600">
+                        Este contrato já gerou{' '}
+                        {contrato.ja_creditado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}{' '}
+                        BevCoins. Confirme que não é lançamento duplicado.
+                      </p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-2">
-                      <Label>Valor do Contrato (R$)</Label>
+                      <Label>Valor do contrato</Label>
                       <Input
-                        required
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        value={contractValue}
-                        onChange={(e) => setContractValue(e.target.value)}
-                        placeholder="1000.00"
+                        readOnly
+                        disabled
+                        value={
+                          contrato
+                            ? contrato.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                            : '—'
+                        }
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>% Participação no Venda</Label>
+                      <Label>% Participação na venda</Label>
                       <Input
                         required
                         type="number"
