@@ -136,26 +136,93 @@ export async function creditBevCoins(cycle_id: string, person_id: string, amount
   if (error) throw error
 }
 
-export interface LaunchedCredit {
+export interface LedgerTx {
   id: string
+  type: TransactionType
   amount: number
   description: string
+  status: TransactionStatus
   created_at: string
-  people: { id: string; nome: string; foto_url: string | null }
+  people: { id: string; nome: string; foto_url: string | null } | null
 }
 
-/** Créditos já lançados no ciclo — base da tela de conferência/estorno. */
-export async function getLaunchedCredits(cycle_id: string) {
+/**
+ * Extrato completo do ciclo — créditos e débitos, de todos os membros.
+ *
+ * Uma consulta só, porque a mesma lista alimenta duas leituras: o saldo
+ * acumulado por pessoa e o histórico lançamento a lançamento. Buscar
+ * separado abriria espaço para os dois números discordarem.
+ */
+export async function getCycleLedger(cycle_id: string) {
   const { data, error } = await supabase
     .from('bevcoins_transactions')
-    .select(`id, amount, description, created_at,
+    .select(`id, type, amount, description, status, created_at,
       people:person_id ( id, nome, foto_url )`)
     .eq('cycle_id', cycle_id)
-    .eq('type', 'credit')
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  return (data ?? []) as unknown as LaunchedCredit[]
+  return (data ?? []) as unknown as LedgerTx[]
+}
+
+export interface MemberBalance {
+  person_id: string
+  nome: string
+  foto_url: string | null
+  /** créditos aprovados */
+  earned: number
+  /** resgates já aprovados */
+  spent: number
+  /** resgates aguardando aval — já saem do disponível */
+  pending: number
+  /** earned - spent - pending */
+  available: number
+  creditos: LedgerTx[]
+  resgates: LedgerTx[]
+}
+
+/**
+ * Agrupa o extrato por pessoa. O saldo disponível desconta também os
+ * resgates pendentes: o valor fica retido enquanto aguarda o aval, senão
+ * a pessoa poderia solicitar duas vezes o mesmo saldo.
+ */
+export function buildBalances(txs: LedgerTx[]): MemberBalance[] {
+  const mapa = new Map<string, MemberBalance>()
+
+  for (const tx of txs) {
+    const p = tx.people
+    if (!p) continue
+    let m = mapa.get(p.id)
+    if (!m) {
+      m = {
+        person_id: p.id,
+        nome: p.nome,
+        foto_url: p.foto_url,
+        earned: 0,
+        spent: 0,
+        pending: 0,
+        available: 0,
+        creditos: [],
+        resgates: [],
+      }
+      mapa.set(p.id, m)
+    }
+
+    const valor = Number(tx.amount)
+    if (tx.type === 'credit') {
+      m.creditos.push(tx)
+      if (tx.status === 'approved') m.earned += valor
+    } else {
+      m.resgates.push(tx)
+      if (tx.status === 'approved') m.spent += valor
+      else if (tx.status === 'pending') m.pending += valor
+    }
+  }
+
+  const lista = [...mapa.values()]
+  for (const m of lista) m.available = m.earned - m.spent - m.pending
+
+  return lista.sort((a, b) => b.earned - a.earned || a.nome.localeCompare(b.nome, 'pt-BR'))
 }
 
 /** Estorna um crédito lançado por engano. Só quem lança crédito consegue (RLS). */

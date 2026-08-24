@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Coins, Trophy, ShieldCheck, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle, Trash2, Pencil } from 'lucide-react'
+import { Coins, Trophy, ShieldCheck, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, XCircle, Trash2, Pencil, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -27,11 +27,13 @@ import {
   evaluateRequest,
   creditBevCoins,
   getEligibleMembers,
-  getLaunchedCredits,
+  getCycleLedger,
+  buildBalances,
   deleteCredit,
   updateCredit,
   CARGO_LABELS,
 } from '@/lib/fid'
+import type { LedgerTx } from '@/lib/fid'
 import {
   canLaunchBevCoins,
   isDiretorGestao,
@@ -375,6 +377,7 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
       setDesc('')
       qc.invalidateQueries({ queryKey: ['fid_ranking'] })
       qc.invalidateQueries({ queryKey: ['my_wallet'] })
+      qc.invalidateQueries({ queryKey: ['fid_ledger'] })
     },
     onError: (err: any) => {
       toast.error(err.message || 'Erro ao lançar crédito.')
@@ -507,7 +510,7 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
         </Card>
       )}
 
-      {canCredit && <LaunchedCreditsCard cycleId={cycleId} />}
+      <SaldosCard cycleId={cycleId} canCredit={canCredit} />
 
       {canApprove && (
         <Card>
@@ -580,125 +583,240 @@ function AdminTab({ cycleId, canCredit, canApprove }: { cycleId: string, canCred
 }
 
 // ---------------------------------------------------------------------------
-// Créditos lançados — conferência, correção e estorno
+// Saldos por membro — total acumulado, com histórico por pessoa
 // ---------------------------------------------------------------------------
-function LaunchedCreditsCard({ cycleId }: { cycleId: string }) {
-  const confirmar = useConfirm()
+
+const brl = (n: number) =>
+  Number(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Aguardando aval',
+  approved: 'Aprovado',
+  rejected: 'Reprovado',
+}
+
+function SaldosCard({ cycleId, canCredit }: { cycleId: string; canCredit: boolean }) {
   const qc = useQueryClient()
+  const confirmar = useConfirm()
+
   const { data, isLoading } = useQuery({
-    queryKey: ['bevcoins_launched', cycleId],
-    queryFn: () => getLaunchedCredits(cycleId),
+    queryKey: ['fid_ledger', cycleId],
+    queryFn: () => getCycleLedger(cycleId),
   })
 
-  const [editing, setEditing] = useState<string | null>(null)
+  const [aberto, setAberto] = useState<string | null>(null)
+  const [editando, setEditando] = useState<LedgerTx | null>(null)
   const [editAmount, setEditAmount] = useState('')
   const [editDesc, setEditDesc] = useState('')
 
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ['bevcoins_launched', cycleId] })
-    qc.invalidateQueries({ queryKey: ['ranking', cycleId] })
-    qc.invalidateQueries({ queryKey: ['my_wallet', cycleId] })
+  const invalidar = () => {
+    qc.invalidateQueries({ queryKey: ['fid_ledger', cycleId] })
+    qc.invalidateQueries({ queryKey: ['fid_ranking'] })
+    qc.invalidateQueries({ queryKey: ['my_wallet'] })
   }
 
   const mutDelete = useMutation({
     mutationFn: (id: string) => deleteCredit(id),
     onSuccess: () => {
       toast.success('Crédito estornado.')
-      invalidate()
+      invalidar()
     },
-    onError: (e: any) => toast.error(e.message ?? 'Não foi possível estornar.'),
   })
 
   const mutUpdate = useMutation({
-    mutationFn: () => updateCredit(editing!, Number(editAmount), editDesc),
+    mutationFn: () => updateCredit(editando!.id, Number(editAmount), editDesc),
     onSuccess: () => {
       toast.success('Crédito atualizado.')
-      setEditing(null)
-      invalidate()
+      setEditando(null)
+      invalidar()
     },
-    onError: (e: any) => toast.error(e.message ?? 'Não foi possível atualizar.'),
   })
+
+  const saldos = buildBalances(data ?? [])
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Créditos lançados neste ciclo</CardTitle>
+        <CardTitle>Saldos por membro</CardTitle>
         <CardDescription>
-          Confira os lançamentos. Um crédito feito por engano pode ser corrigido ou estornado.
+          Total acumulado no ciclo. Clique em alguém para ver os lançamentos e as solicitações de
+          uso.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <div>Carregando...</div>
-        ) : !data || data.length === 0 ? (
+          <div className="text-muted-foreground text-sm">Carregando…</div>
+        ) : saldos.length === 0 ? (
           <div className="text-muted-foreground rounded-lg border border-dashed p-8 text-center">
-            Nenhum crédito lançado neste ciclo.
+            Nenhum BevCoin lançado neste ciclo.
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {data.map((tx) => (
-              <div key={tx.id} className="flex items-center justify-between rounded-lg border p-4">
-                <div className="flex items-center gap-4">
-                  <Avatar>
-                    <AvatarImage src={tx.people?.foto_url || undefined} />
-                    <AvatarFallback>
-                      {(tx.people?.nome ?? '??').substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col">
-                    <span className="font-semibold">{tx.people?.nome ?? 'Membro removido'}</span>
-                    <span className="text-muted-foreground text-sm">
-                      {tx.description} ·{' '}
-                      {new Date(tx.created_at).toLocaleDateString('pt-BR')}
-                    </span>
-                  </div>
+          <div className="flex flex-col gap-2">
+            {saldos.map((m) => {
+              const expandido = aberto === m.person_id
+              return (
+                <div key={m.person_id} className="rounded-lg border">
+                  <button
+                    type="button"
+                    aria-expanded={expandido}
+                    onClick={() => setAberto(expandido ? null : m.person_id)}
+                    className="hover:bg-accent/50 flex w-full items-center justify-between gap-4 rounded-lg p-4 text-left transition-colors"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={m.foto_url || undefined} />
+                        <AvatarFallback>{m.nome.substring(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-semibold">{m.nome}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {m.creditos.length} lançamento{m.creditos.length === 1 ? '' : 's'}
+                          {m.resgates.length > 0 &&
+                            ` · ${m.resgates.length} solicitaç${m.resgates.length === 1 ? 'ão' : 'ões'}`}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex shrink-0 items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-primary flex items-center justify-end gap-1 text-lg font-bold">
+                          {brl(m.available)}
+                          <Coins className="size-4" />
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          acumulado {brl(m.earned)}
+                          {m.pending > 0 && ` · ${brl(m.pending)} retido`}
+                        </div>
+                      </div>
+                      <ChevronDown
+                        className={`text-muted-foreground size-4 shrink-0 transition-transform ${expandido ? 'rotate-180' : ''}`}
+                        aria-hidden="true"
+                      />
+                    </div>
+                  </button>
+
+                  {expandido && (
+                    <div className="flex flex-col gap-4 border-t p-4">
+                      <div>
+                        <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wider">
+                          Lançamentos
+                        </p>
+                        <div className="flex flex-col gap-1.5">
+                          {m.creditos.map((tx) => (
+                            <div
+                              key={tx.id}
+                              className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                            >
+                              <div className="flex min-w-0 flex-col">
+                                <span className="truncate">{tx.description}</span>
+                                <span className="text-muted-foreground text-xs">
+                                  {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                                </span>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span className="font-semibold text-green-600">
+                                  + {brl(Number(tx.amount))}
+                                </span>
+                                {canCredit && (
+                                  <>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="size-7"
+                                      aria-label="Editar crédito"
+                                      onClick={() => {
+                                        setEditando(tx)
+                                        setEditAmount(String(tx.amount))
+                                        setEditDesc(tx.description)
+                                      }}
+                                    >
+                                      <Pencil className="size-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="icon"
+                                      variant="ghost"
+                                      className="text-muted-foreground hover:text-destructive size-7"
+                                      aria-label="Estornar crédito"
+                                      disabled={mutDelete.isPending}
+                                      onClick={async () => {
+                                        if (
+                                          await confirmar({
+                                            titulo: `Estornar ${brl(Number(tx.amount))} BevCoins?`,
+                                            descricao: `O crédito de ${m.nome} sai do saldo e do ranking. Esta ação não pode ser desfeita.`,
+                                            confirmar: 'Estornar',
+                                            destrutivo: true,
+                                          })
+                                        )
+                                          mutDelete.mutate(tx.id)
+                                      }}
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wider">
+                          Solicitações de uso
+                        </p>
+                        {m.resgates.length === 0 ? (
+                          <p className="text-muted-foreground text-sm">
+                            Nenhuma solicitação até agora.
+                          </p>
+                        ) : (
+                          <div className="flex flex-col gap-1.5">
+                            {m.resgates.map((tx) => (
+                              <div
+                                key={tx.id}
+                                className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm"
+                              >
+                                <div className="flex min-w-0 flex-col">
+                                  <span className="truncate">{tx.description}</span>
+                                  <span className="text-muted-foreground text-xs">
+                                    {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                                  </span>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <Badge
+                                    variant={
+                                      tx.status === 'approved'
+                                        ? 'success'
+                                        : tx.status === 'rejected'
+                                          ? 'danger'
+                                          : 'warning'
+                                    }
+                                  >
+                                    {STATUS_LABEL[tx.status]}
+                                  </Badge>
+                                  <span
+                                    className={
+                                      tx.status === 'rejected'
+                                        ? 'text-muted-foreground font-semibold line-through'
+                                        : 'font-semibold text-red-600'
+                                    }
+                                  >
+                                    − {brl(Number(tx.amount))}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <span className="font-bold text-green-600">
-                    + {Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      aria-label="Editar crédito"
-                      onClick={() => {
-                        setEditing(tx.id)
-                        setEditAmount(String(tx.amount))
-                        setEditDesc(tx.description)
-                      }}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      aria-label="Estornar crédito"
-                      className="text-red-600 hover:bg-red-50 hover:text-red-700"
-                      disabled={mutDelete.isPending}
-                      onClick={async () => {
-                        if (
-                          await confirmar({
-                            titulo: `Estornar ${Number(tx.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} BevCoins?`,
-                            descricao: `O crédito de ${tx.people?.nome ?? 'este membro'} será removido do saldo e do ranking. Esta ação não pode ser desfeita.`,
-                            confirmar: 'Estornar',
-                            destrutivo: true,
-                          })
-                        ) {
-                          mutDelete.mutate(tx.id)
-                        }
-                      }}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
-        <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <Dialog open={editando !== null} onOpenChange={(o) => !o && setEditando(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Corrigir crédito</DialogTitle>
