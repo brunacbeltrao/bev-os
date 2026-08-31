@@ -320,3 +320,263 @@ export function alertaPagamento(c: EpeasContrato): { nivel: 'aviso' | 'critico';
   if (dias > 3) return { nivel: 'aviso', dias }
   return null
 }
+
+// ===========================================================================
+// SLA por etapa — o que a lista de emojis do Telegram sinalizava
+// ===========================================================================
+
+/**
+ * Dias tolerados em cada etapa antes de virar atraso.
+ * Vem do processo real: assinatura e pagamento são os gargalos conhecidos.
+ */
+export const SLA_DIAS: Record<EtapaMacro, number> = {
+  comercial_contrato_fechado: 2,
+  comercial_formulario_enviado: 5,
+  gestao_formulario_conferido: 2,
+  gestao_assessor_definido: 2,
+  gestao_contrato_elaboracao: 5,
+  gestao_contrato_assinatura: 5,
+  gestao_contrato_assinado: 2,
+  projetos_aguardando_alocacao: 3,
+  projetos_alocado: 2,
+  projetos_grupo_criado: 2,
+  projetos_em_execucao: 30,
+  projetos_entregue: 9999,
+}
+
+export type Saude = 'ok' | 'atencao' | 'atrasado'
+
+export interface StatusEtapa {
+  dias: number
+  sla: number
+  saude: Saude
+}
+
+/** Há quantos dias o contrato está parado na etapa, e se isso já é atraso. */
+export function statusEtapa(c: EpeasContrato): StatusEtapa {
+  const desde = c.etapa_macro_em ?? c.created_at
+  const dias = Math.floor((Date.now() - new Date(desde).getTime()) / 86_400_000)
+  const sla = SLA_DIAS[c.etapa_macro]
+  const saude: Saude = dias > sla ? 'atrasado' : dias >= sla - 1 ? 'atencao' : 'ok'
+  return { dias, sla, saude }
+}
+
+// ===========================================================================
+// Checklist por etapa — define o que é "pronto"
+// ===========================================================================
+
+export interface ItemChecklist {
+  key: string
+  label: string
+  /** trava o avanço da etapa enquanto não estiver feito */
+  obrigatorio: boolean
+}
+
+/**
+ * O template vive no código porque muda com o processo, não com o dado.
+ * Sem isso, "avançar etapa" é um botão sem contrato de significado — cada
+ * pessoa decide sozinha o que considera pronto.
+ */
+export const CHECKLIST: Partial<Record<EtapaMacro, ItemChecklist[]>> = {
+  comercial_contrato_fechado: [
+    { key: 'dados_cliente', label: 'Dados do cliente conferidos', obrigatorio: true },
+    { key: 'valor_servico', label: 'Valor e serviço confirmados com o cliente', obrigatorio: true },
+  ],
+  comercial_formulario_enviado: [
+    { key: 'form_enviado', label: 'Formulário enviado ao cliente', obrigatorio: true },
+    { key: 'form_link', label: 'Link do formulário registrado aqui', obrigatorio: true },
+  ],
+  gestao_formulario_conferido: [
+    { key: 'form_preenchido', label: 'Cliente preencheu o formulário', obrigatorio: true },
+    { key: 'dados_completos', label: 'Dados suficientes para redigir o contrato', obrigatorio: true },
+  ],
+  gestao_assessor_definido: [
+    { key: 'assessor', label: 'Assessor de Gestão definido', obrigatorio: true },
+  ],
+  gestao_contrato_elaboracao: [
+    { key: 'minuta', label: 'Minuta redigida', obrigatorio: true },
+    { key: 'revisao', label: 'Revisada por segunda pessoa', obrigatorio: false },
+  ],
+  gestao_contrato_assinatura: [
+    { key: 'autentique', label: 'Enviado pelo Autentique', obrigatorio: true },
+    { key: 'link_autentique', label: 'Link do Autentique registrado aqui', obrigatorio: true },
+  ],
+  gestao_contrato_assinado: [
+    { key: 'assinado_cliente', label: 'Cliente assinou', obrigatorio: true },
+    { key: 'assinado_bev', label: 'Bevilaqua assinou', obrigatorio: true },
+  ],
+  projetos_aguardando_alocacao: [
+    { key: 'nucleo', label: 'Núcleo escolhido', obrigatorio: true },
+  ],
+  projetos_alocado: [
+    { key: 'time', label: 'Gerente e assessores definidos', obrigatorio: true },
+    { key: 'kickoff', label: 'Kickoff combinado com o time', obrigatorio: false },
+  ],
+  projetos_grupo_criado: [
+    { key: 'grupo', label: 'Grupo de WhatsApp criado com o cliente', obrigatorio: true },
+    { key: 'grupo_link', label: 'Link do grupo registrado aqui', obrigatorio: true },
+  ],
+  projetos_em_execucao: [
+    { key: 'entrega', label: 'Entregável enviado ao cliente', obrigatorio: true },
+    { key: 'aceite', label: 'Cliente confirmou o recebimento', obrigatorio: false },
+  ],
+}
+
+export interface ChecklistFeito {
+  etapa: string
+  item_key: string
+  feito_em: string
+  feito_por: { id: string; nome: string } | null
+}
+
+export async function getChecklist(contratoId: string): Promise<ChecklistFeito[]> {
+  const { data, error } = await supabase
+    .from('epeas_checklist_done')
+    .select('etapa, item_key, feito_em, feito_por:people!epeas_checklist_done_feito_por_fkey(id, nome)')
+    .eq('contrato_id', contratoId)
+  if (error) throw error
+  return (data ?? []) as unknown as ChecklistFeito[]
+}
+
+export async function marcarItem(contratoId: string, etapa: string, itemKey: string, pessoaId: string) {
+  const { error } = await supabase
+    .from('epeas_checklist_done')
+    .insert({ contrato_id: contratoId, etapa, item_key: itemKey, feito_por: pessoaId })
+  if (error) throw error
+}
+
+export async function desmarcarItem(contratoId: string, etapa: string, itemKey: string) {
+  const { error } = await supabase
+    .from('epeas_checklist_done')
+    .delete()
+    .eq('contrato_id', contratoId)
+    .eq('etapa', etapa)
+    .eq('item_key', itemKey)
+  if (error) throw error
+}
+
+/** O que ainda falta na etapa atual para poder avançar. */
+export function pendenciasDaEtapa(
+  etapa: EtapaMacro,
+  feitos: ChecklistFeito[],
+): ItemChecklist[] {
+  const itens = CHECKLIST[etapa] ?? []
+  const marcados = new Set(feitos.filter((f) => f.etapa === etapa).map((f) => f.item_key))
+  return itens.filter((i) => i.obrigatorio && !marcados.has(i.key))
+}
+
+// ===========================================================================
+// Conversa
+// ===========================================================================
+
+export interface Comentario {
+  id: string
+  contrato_id: string
+  corpo: string
+  mencoes: string[]
+  anexo_path: string | null
+  anexo_nome: string | null
+  created_at: string
+  edited_at: string | null
+  autor: { id: string; nome: string; foto_url: string | null } | null
+}
+
+export async function getComentarios(contratoId: string): Promise<Comentario[]> {
+  const { data, error } = await supabase
+    .from('epeas_comments')
+    .select('id, contrato_id, corpo, mencoes, anexo_path, anexo_nome, created_at, edited_at, autor:people!epeas_comments_autor_id_fkey(id, nome, foto_url)')
+    .eq('contrato_id', contratoId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as unknown as Comentario[]
+}
+
+/** Extrai @menções do texto casando com o diretório de pessoas. */
+export function extrairMencoes(corpo: string, pessoas: { id: string; nome: string }[]): string[] {
+  const ids = new Set<string>()
+  for (const p of pessoas) {
+    const primeiro = p.nome.split(' ')[0]
+    if (!primeiro) continue
+    // @Nome ou @Nome Sobrenome, sem diferenciar acento de caixa
+    const re = new RegExp(`@${primeiro}\\b`, 'i')
+    if (re.test(corpo)) ids.add(p.id)
+  }
+  return [...ids]
+}
+
+export async function comentar(
+  contratoId: string,
+  autorId: string,
+  corpo: string,
+  mencoes: string[],
+  anexo?: { path: string; nome: string },
+) {
+  const { error } = await supabase.from('epeas_comments').insert({
+    contrato_id: contratoId,
+    autor_id: autorId,
+    corpo,
+    mencoes,
+    anexo_path: anexo?.path ?? null,
+    anexo_nome: anexo?.nome ?? null,
+  })
+  if (error) throw error
+}
+
+export async function enviarAnexo(contratoId: string, arquivo: File) {
+  const path = `${contratoId}/${Date.now()}-${arquivo.name.replace(/[^\w.\-]/g, '_')}`
+  const { error } = await supabase.storage.from('epeas').upload(path, arquivo)
+  if (error) throw error
+  return { path, nome: arquivo.name }
+}
+
+export function urlAnexo(path: string) {
+  return supabase.storage.from('epeas').getPublicUrl(path).data.publicUrl
+}
+
+// ===========================================================================
+// Leitura / não-lidos
+// ===========================================================================
+
+export async function marcarLido(contratoId: string, pessoaId: string) {
+  const { error } = await supabase
+    .from('epeas_reads')
+    .upsert(
+      { contrato_id: contratoId, person_id: pessoaId, last_read_at: new Date().toISOString() },
+      { onConflict: 'contrato_id,person_id' },
+    )
+  if (error) throw error
+}
+
+export interface ResumoConversa {
+  /** contrato_id -> nº de comentários não lidos */
+  naoLidos: Map<string, number>
+  /** contrato_id -> última menção a mim ainda não lida */
+  mencionado: Set<string>
+}
+
+/** Uma consulta só para o badge de não-lidos de toda a lista. */
+export async function getResumoConversa(pessoaId: string): Promise<ResumoConversa> {
+  const [{ data: coments, error: e1 }, { data: reads, error: e2 }] = await Promise.all([
+    supabase.from('epeas_comments').select('contrato_id, autor_id, mencoes, created_at'),
+    supabase.from('epeas_reads').select('contrato_id, last_read_at').eq('person_id', pessoaId),
+  ])
+  if (e1) throw e1
+  if (e2) throw e2
+
+  const lidoEm = new Map<string, number>()
+  for (const r of reads ?? []) {
+    lidoEm.set((r as any).contrato_id, new Date((r as any).last_read_at).getTime())
+  }
+
+  const naoLidos = new Map<string, number>()
+  const mencionado = new Set<string>()
+  for (const c of coments ?? []) {
+    const cc = c as any
+    if (cc.autor_id === pessoaId) continue
+    const t = new Date(cc.created_at).getTime()
+    if (t <= (lidoEm.get(cc.contrato_id) ?? 0)) continue
+    naoLidos.set(cc.contrato_id, (naoLidos.get(cc.contrato_id) ?? 0) + 1)
+    if ((cc.mencoes ?? []).includes(pessoaId)) mencionado.add(cc.contrato_id)
+  }
+  return { naoLidos, mencionado }
+}

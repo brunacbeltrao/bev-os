@@ -3,7 +3,7 @@
  * e pela página do contrato, para que todas falem a mesma língua visual.
  */
 import { Link } from '@tanstack/react-router'
-import { AlertTriangle, ExternalLink } from 'lucide-react'
+import { AlertTriangle, AtSign, ExternalLink, MessageSquare } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import * as E from '@/lib/epeas'
@@ -40,12 +40,17 @@ export function ProgressoEtapa({ etapa }: { etapa: E.EtapaMacro }) {
 export function ContratoCard({
   c,
   acao,
+  naoLidos = 0,
+  mencionado = false,
 }: {
   c: E.EpeasContrato
   acao?: React.ReactNode
+  naoLidos?: number
+  mencionado?: boolean
 }) {
   const fase = E.faseDaEtapa(c.etapa_macro)
   const alerta = E.alertaPagamento(c)
+  const status = E.statusEtapa(c)
 
   return (
     <Card className={c.excecoes_abertas > 0 ? 'border-destructive/50' : undefined}>
@@ -65,6 +70,18 @@ export function ContratoCard({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {mencionado && (
+              <Badge variant="info" className="gap-1">
+                <AtSign className="size-3" aria-hidden="true" />
+                citaram você
+              </Badge>
+            )}
+            {naoLidos > 0 && (
+              <Badge variant="neutral" className="gap-1">
+                <MessageSquare className="size-3" aria-hidden="true" />
+                {naoLidos}
+              </Badge>
+            )}
             <Badge variant={FASE_BADGE[fase]}>{E.FASE_LABELS[fase]}</Badge>
             {c.excecoes_abertas > 0 && (
               <Badge variant="danger" className="gap-1">
@@ -92,7 +109,21 @@ export function ContratoCard({
               </span>
             )}
           </div>
-          <ProgressoEtapa etapa={c.etapa_macro} />
+          <div className="flex flex-col items-end gap-1">
+            <ProgressoEtapa etapa={c.etapa_macro} />
+            <span
+              className={`text-xs ${
+                status.saude === 'atrasado'
+                  ? 'text-destructive font-medium'
+                  : status.saude === 'atencao'
+                    ? 'text-amber-600'
+                    : 'text-muted-foreground'
+              }`}
+            >
+              há {status.dias}d nesta etapa
+              {status.saude === 'atrasado' && ` · prazo ${status.sla}d`}
+            </span>
+          </div>
         </div>
 
         {(c.nucleo || c.gestao_responsavel) && (

@@ -1,0 +1,13 @@
+-- ============================================================
+-- EPEAS · conversa, checklist e leitura — JÁ APLICADO no Supabase.
+--
+-- Rastrear etapa não substitui um grupo de mensagens. O que as três
+-- áreas fazem no Telegram é conversar sobre o contrato, mandar
+-- comprovante e cobrar quem está devendo.
+--
+-- Tabelas: epeas_comments (com @menções e anexo), epeas_reads
+-- (badge de não-lidos) e epeas_checklist_done (o que é "pronto"
+-- em cada etapa). RLS espelha epeas_pode_ver / epeas_pode_editar.
+-- Bucket de anexos: 'epeas'.
+--
+-- Consulte o projeto Supabase para o DDL vigente.

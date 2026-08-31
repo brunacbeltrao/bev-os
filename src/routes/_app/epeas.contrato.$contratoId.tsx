@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Plus } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,6 +22,8 @@ import { getDirectory } from '@/lib/org'
 import * as E from '@/lib/epeas'
 import { supabase } from '@/lib/supabase'
 import { fmtBRLCurto, fmtData, LinkExterno, Vazio } from '@/components/features/epeas/epeas-shared'
+import { Conversa } from '@/components/features/epeas/conversa'
+import { ChecklistEtapa } from '@/components/features/epeas/checklist-etapa'
 
 export const Route = createFileRoute('/_app/epeas/contrato/$contratoId')({
   component: ContratoEpeasPage,
@@ -159,35 +161,18 @@ function ContratoEpeasPage() {
         </Card>
       )}
 
-      {/* -------- avançar etapa -------- */}
-      {proxima && (
-        <Card>
-          <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-            <div>
-              <p className="text-sm font-medium">Próxima etapa</p>
-              <p className="text-muted-foreground text-sm">{E.ETAPA_MACRO_LABELS[proxima]}</p>
-            </div>
-            <Button
-              className="gap-1.5"
-              disabled={mutPatch.isPending || (proxima === 'projetos_em_execucao' && !c.link_grupo_whatsapp)}
-              title={
-                proxima === 'projetos_em_execucao' && !c.link_grupo_whatsapp
-                  ? 'Registre o link do grupo de WhatsApp antes de iniciar a execução'
-                  : undefined
-              }
-              onClick={() =>
-                mutPatch.mutate(
-                  proxima === 'projetos_em_execucao'
-                    ? { etapa_macro: proxima, etapa_execucao: 'gru_emitir' }
-                    : { etapa_macro: proxima },
-                )
-              }
-            >
-              Avançar <ArrowRight className="size-4" />
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      <ChecklistEtapa
+        contrato={c}
+        avancando={mutPatch.isPending}
+        onAvancar={() =>
+          proxima &&
+          mutPatch.mutate(
+            proxima === 'projetos_em_execucao'
+              ? { etapa_macro: proxima, etapa_execucao: 'gru_emitir' }
+              : { etapa_macro: proxima },
+          )
+        }
+      />
 
       {/* -------- execução (Registro de Marca) -------- */}
       {emExecucao && (
@@ -296,6 +281,11 @@ function ContratoEpeasPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Conversa
+        contratoId={contratoId}
+        pessoas={pessoas.map((p) => ({ id: p.person.id, nome: p.person.nome }))}
+      />
 
       {/* -------- links -------- */}
       <Card>
