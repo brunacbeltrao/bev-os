@@ -1,0 +1,17 @@
+-- ============================================================
+-- EPEAS · Onda A — JÁ APLICADO no Supabase (24/08/2026).
+--
+-- Decisão de arquitetura que diverge do PRD §3.1: em vez de uma tabela
+-- `epeas_contracts` paralela, o ciclo de vida pendura em `contratos`
+-- (1:1 via epeas_lifecycle). Motivo: `contratos` já tinha 31 registros
+-- reais do Portal BJ e é a fonte que alimenta faturamento_ano e os
+-- cards de Dashboard. Duas tabelas de contrato dariam duas verdades,
+-- e a promessa do PRD §8 (dashboards passam a mostrar dado real) não
+-- se cumpriria, porque epeas_contracts nem tem campo de valor.
+-- ============================================================
+-- (conteúdo idêntico ao aplicado: enums, epeas_lifecycle,
+--  epeas_contract_exceptions, epeas_contract_history, triggers de
+--  histórico e de carimbo de etapa, helpers e políticas de RLS)
+--
+-- Consulte o projeto Supabase para o DDL vigente; este arquivo existe
+-- para manter o histórico de migrations do repositório em sincronia.

@@ -17,6 +17,7 @@ import {
   Home,
   Megaphone,
   Newspaper,
+  Route as RouteIcon,
   ShieldCheck,
   Sparkles,
   Target,
@@ -55,6 +56,7 @@ const GROUPS: ModuleGroup[] = [
     items: [
       { label: 'Dashboards', icon: BarChart3, to: '/dashboards', onlyLeaders: true },
       { label: 'Calendário', icon: CalendarDays, to: '/agenda' },
+      { label: 'EPEAS', icon: RouteIcon, to: '/epeas' },
       { label: 'Avisos', icon: Megaphone, to: '/comunicados' },
       { label: 'BevSkills', icon: GraduationCap, to: '/bevskills' },
     ],
