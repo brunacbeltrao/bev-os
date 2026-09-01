@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as RecuperarSenhaRouteImport } from './routes/recuperar-senha'
+import { Route as NovaSenhaRouteImport } from './routes/nova-senha'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as AppRouteImport } from './routes/_app'
@@ -46,6 +48,16 @@ import { Route as AppAssessorPersonIdRouteImport } from './routes/_app/assessor.
 import { Route as AppEpeasContratoContratoIdRouteImport } from './routes/_app/epeas.contrato.$contratoId'
 import { Route as AppBevskillsCursoCourseIdRouteImport } from './routes/_app/bevskills/curso.$courseId'
 
+const RecuperarSenhaRoute = RecuperarSenhaRouteImport.update({
+  id: '/recuperar-senha',
+  path: '/recuperar-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NovaSenhaRoute = NovaSenhaRouteImport.update({
+  id: '/nova-senha',
+  path: '/nova-senha',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -232,6 +244,8 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/nova-senha': typeof NovaSenhaRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin-pc': typeof AppAdminPcRoute
   '/agenda': typeof AppAgendaRoute
   '/benchs': typeof AppBenchsRoute
@@ -268,6 +282,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/nova-senha': typeof NovaSenhaRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin-pc': typeof AppAdminPcRoute
   '/agenda': typeof AppAgendaRoute
   '/benchs': typeof AppBenchsRoute
@@ -307,6 +323,8 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/cadastro': typeof CadastroRoute
   '/login': typeof LoginRoute
+  '/nova-senha': typeof NovaSenhaRoute
+  '/recuperar-senha': typeof RecuperarSenhaRoute
   '/_app/admin-pc': typeof AppAdminPcRoute
   '/_app/agenda': typeof AppAgendaRoute
   '/_app/benchs': typeof AppBenchsRoute
@@ -347,6 +365,8 @@ export interface FileRouteTypes {
     | '/'
     | '/cadastro'
     | '/login'
+    | '/nova-senha'
+    | '/recuperar-senha'
     | '/admin-pc'
     | '/agenda'
     | '/benchs'
@@ -383,6 +403,8 @@ export interface FileRouteTypes {
   to:
     | '/cadastro'
     | '/login'
+    | '/nova-senha'
+    | '/recuperar-senha'
     | '/admin-pc'
     | '/agenda'
     | '/benchs'
@@ -421,6 +443,8 @@ export interface FileRouteTypes {
     | '/_app'
     | '/cadastro'
     | '/login'
+    | '/nova-senha'
+    | '/recuperar-senha'
     | '/_app/admin-pc'
     | '/_app/agenda'
     | '/_app/benchs'
@@ -460,10 +484,26 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   CadastroRoute: typeof CadastroRoute
   LoginRoute: typeof LoginRoute
+  NovaSenhaRoute: typeof NovaSenhaRoute
+  RecuperarSenhaRoute: typeof RecuperarSenhaRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/recuperar-senha': {
+      id: '/recuperar-senha'
+      path: '/recuperar-senha'
+      fullPath: '/recuperar-senha'
+      preLoaderRoute: typeof RecuperarSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/nova-senha': {
+      id: '/nova-senha'
+      path: '/nova-senha'
+      fullPath: '/nova-senha'
+      preLoaderRoute: typeof NovaSenhaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -797,6 +837,8 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   CadastroRoute: CadastroRoute,
   LoginRoute: LoginRoute,
+  NovaSenhaRoute: NovaSenhaRoute,
+  RecuperarSenhaRoute: RecuperarSenhaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

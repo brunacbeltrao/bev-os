@@ -65,7 +65,15 @@ function LoginPage() {
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="senha">Senha</Label>
+          <div className="flex items-baseline justify-between">
+            <Label htmlFor="senha">Senha</Label>
+            <Link
+              to="/recuperar-senha"
+              className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-4"
+            >
+              Esqueci minha senha
+            </Link>
+          </div>
           <Input
             id="senha"
             type="password"
