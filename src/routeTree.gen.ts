@@ -26,7 +26,6 @@ import { Route as AppGerenteRouteImport } from './routes/_app/gerente'
 import { Route as AppFrequenciaRouteImport } from './routes/_app/frequencia'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFidRouteImport } from './routes/_app/fid'
-import { Route as AppEpeasRouteImport } from './routes/_app/epeas'
 import { Route as AppDashboardsRouteImport } from './routes/_app/dashboards'
 import { Route as AppComunicadosRouteImport } from './routes/_app/comunicados'
 import { Route as AppComercialRouteImport } from './routes/_app/comercial'
@@ -34,6 +33,7 @@ import { Route as AppBevNewsRouteImport } from './routes/_app/bev-news'
 import { Route as AppBenchsRouteImport } from './routes/_app/benchs'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppAdminPcRouteImport } from './routes/_app/admin-pc'
+import { Route as AppEpeasIndexRouteImport } from './routes/_app/epeas.index'
 import { Route as AppDiretorIndexRouteImport } from './routes/_app/diretor/index'
 import { Route as AppBevskillsIndexRouteImport } from './routes/_app/bevskills/index'
 import { Route as AppDiretorTodoRouteImport } from './routes/_app/diretor/todo'
@@ -130,11 +130,6 @@ const AppFidRoute = AppFidRouteImport.update({
   path: '/fid',
   getParentRoute: () => AppRoute,
 } as any)
-const AppEpeasRoute = AppEpeasRouteImport.update({
-  id: '/epeas',
-  path: '/epeas',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppDashboardsRoute = AppDashboardsRouteImport.update({
   id: '/dashboards',
   path: '/dashboards',
@@ -168,6 +163,11 @@ const AppAgendaRoute = AppAgendaRouteImport.update({
 const AppAdminPcRoute = AppAdminPcRouteImport.update({
   id: '/admin-pc',
   path: '/admin-pc',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEpeasIndexRoute = AppEpeasIndexRouteImport.update({
+  id: '/epeas/',
+  path: '/epeas/',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDiretorIndexRoute = AppDiretorIndexRouteImport.update({
@@ -217,9 +217,9 @@ const AppAssessorPersonIdRoute = AppAssessorPersonIdRouteImport.update({
 } as any)
 const AppEpeasContratoContratoIdRoute =
   AppEpeasContratoContratoIdRouteImport.update({
-    id: '/contrato/$contratoId',
-    path: '/contrato/$contratoId',
-    getParentRoute: () => AppEpeasRoute,
+    id: '/epeas/contrato/$contratoId',
+    path: '/epeas/contrato/$contratoId',
+    getParentRoute: () => AppRoute,
   } as any)
 const AppBevskillsCursoCourseIdRoute =
   AppBevskillsCursoCourseIdRouteImport.update({
@@ -239,7 +239,6 @@ export interface FileRoutesByFullPath {
   '/comercial': typeof AppComercialRoute
   '/comunicados': typeof AppComunicadosRoute
   '/dashboards': typeof AppDashboardsRoute
-  '/epeas': typeof AppEpeasRouteWithChildren
   '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
@@ -262,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/diretor/todo': typeof AppDiretorTodoRoute
   '/bevskills/': typeof AppBevskillsIndexRoute
   '/diretor/': typeof AppDiretorIndexRoute
+  '/epeas/': typeof AppEpeasIndexRoute
   '/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
   '/epeas/contrato/$contratoId': typeof AppEpeasContratoContratoIdRoute
 }
@@ -275,7 +275,6 @@ export interface FileRoutesByTo {
   '/comercial': typeof AppComercialRoute
   '/comunicados': typeof AppComunicadosRoute
   '/dashboards': typeof AppDashboardsRoute
-  '/epeas': typeof AppEpeasRouteWithChildren
   '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
@@ -299,6 +298,7 @@ export interface FileRoutesByTo {
   '/diretor/todo': typeof AppDiretorTodoRoute
   '/bevskills': typeof AppBevskillsIndexRoute
   '/diretor': typeof AppDiretorIndexRoute
+  '/epeas': typeof AppEpeasIndexRoute
   '/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
   '/epeas/contrato/$contratoId': typeof AppEpeasContratoContratoIdRoute
 }
@@ -314,7 +314,6 @@ export interface FileRoutesById {
   '/_app/comercial': typeof AppComercialRoute
   '/_app/comunicados': typeof AppComunicadosRoute
   '/_app/dashboards': typeof AppDashboardsRoute
-  '/_app/epeas': typeof AppEpeasRouteWithChildren
   '/_app/fid': typeof AppFidRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/frequencia': typeof AppFrequenciaRoute
@@ -338,6 +337,7 @@ export interface FileRoutesById {
   '/_app/diretor/todo': typeof AppDiretorTodoRoute
   '/_app/bevskills/': typeof AppBevskillsIndexRoute
   '/_app/diretor/': typeof AppDiretorIndexRoute
+  '/_app/epeas/': typeof AppEpeasIndexRoute
   '/_app/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
   '/_app/epeas/contrato/$contratoId': typeof AppEpeasContratoContratoIdRoute
 }
@@ -354,7 +354,6 @@ export interface FileRouteTypes {
     | '/comercial'
     | '/comunicados'
     | '/dashboards'
-    | '/epeas'
     | '/fid'
     | '/financeiro'
     | '/frequencia'
@@ -377,6 +376,7 @@ export interface FileRouteTypes {
     | '/diretor/todo'
     | '/bevskills/'
     | '/diretor/'
+    | '/epeas/'
     | '/bevskills/curso/$courseId'
     | '/epeas/contrato/$contratoId'
   fileRoutesByTo: FileRoutesByTo
@@ -390,7 +390,6 @@ export interface FileRouteTypes {
     | '/comercial'
     | '/comunicados'
     | '/dashboards'
-    | '/epeas'
     | '/fid'
     | '/financeiro'
     | '/frequencia'
@@ -414,6 +413,7 @@ export interface FileRouteTypes {
     | '/diretor/todo'
     | '/bevskills'
     | '/diretor'
+    | '/epeas'
     | '/bevskills/curso/$courseId'
     | '/epeas/contrato/$contratoId'
   id:
@@ -428,7 +428,6 @@ export interface FileRouteTypes {
     | '/_app/comercial'
     | '/_app/comunicados'
     | '/_app/dashboards'
-    | '/_app/epeas'
     | '/_app/fid'
     | '/_app/financeiro'
     | '/_app/frequencia'
@@ -452,6 +451,7 @@ export interface FileRouteTypes {
     | '/_app/diretor/todo'
     | '/_app/bevskills/'
     | '/_app/diretor/'
+    | '/_app/epeas/'
     | '/_app/bevskills/curso/$courseId'
     | '/_app/epeas/contrato/$contratoId'
   fileRoutesById: FileRoutesById
@@ -583,13 +583,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppFidRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/epeas': {
-      id: '/_app/epeas'
-      path: '/epeas'
-      fullPath: '/epeas'
-      preLoaderRoute: typeof AppEpeasRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/dashboards': {
       id: '/_app/dashboards'
       path: '/dashboards'
@@ -637,6 +630,13 @@ declare module '@tanstack/react-router' {
       path: '/admin-pc'
       fullPath: '/admin-pc'
       preLoaderRoute: typeof AppAdminPcRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/epeas/': {
+      id: '/_app/epeas/'
+      path: '/epeas'
+      fullPath: '/epeas/'
+      preLoaderRoute: typeof AppEpeasIndexRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/diretor/': {
@@ -704,10 +704,10 @@ declare module '@tanstack/react-router' {
     }
     '/_app/epeas/contrato/$contratoId': {
       id: '/_app/epeas/contrato/$contratoId'
-      path: '/contrato/$contratoId'
+      path: '/epeas/contrato/$contratoId'
       fullPath: '/epeas/contrato/$contratoId'
       preLoaderRoute: typeof AppEpeasContratoContratoIdRouteImport
-      parentRoute: typeof AppEpeasRoute
+      parentRoute: typeof AppRoute
     }
     '/_app/bevskills/curso/$courseId': {
       id: '/_app/bevskills/curso/$courseId'
@@ -719,18 +719,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AppEpeasRouteChildren {
-  AppEpeasContratoContratoIdRoute: typeof AppEpeasContratoContratoIdRoute
-}
-
-const AppEpeasRouteChildren: AppEpeasRouteChildren = {
-  AppEpeasContratoContratoIdRoute: AppEpeasContratoContratoIdRoute,
-}
-
-const AppEpeasRouteWithChildren = AppEpeasRoute._addFileChildren(
-  AppEpeasRouteChildren,
-)
-
 interface AppRouteChildren {
   AppAdminPcRoute: typeof AppAdminPcRoute
   AppAgendaRoute: typeof AppAgendaRoute
@@ -739,7 +727,6 @@ interface AppRouteChildren {
   AppComercialRoute: typeof AppComercialRoute
   AppComunicadosRoute: typeof AppComunicadosRoute
   AppDashboardsRoute: typeof AppDashboardsRoute
-  AppEpeasRoute: typeof AppEpeasRouteWithChildren
   AppFidRoute: typeof AppFidRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppFrequenciaRoute: typeof AppFrequenciaRoute
@@ -763,7 +750,9 @@ interface AppRouteChildren {
   AppDiretorTodoRoute: typeof AppDiretorTodoRoute
   AppBevskillsIndexRoute: typeof AppBevskillsIndexRoute
   AppDiretorIndexRoute: typeof AppDiretorIndexRoute
+  AppEpeasIndexRoute: typeof AppEpeasIndexRoute
   AppBevskillsCursoCourseIdRoute: typeof AppBevskillsCursoCourseIdRoute
+  AppEpeasContratoContratoIdRoute: typeof AppEpeasContratoContratoIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -774,7 +763,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppComercialRoute: AppComercialRoute,
   AppComunicadosRoute: AppComunicadosRoute,
   AppDashboardsRoute: AppDashboardsRoute,
-  AppEpeasRoute: AppEpeasRouteWithChildren,
   AppFidRoute: AppFidRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppFrequenciaRoute: AppFrequenciaRoute,
@@ -798,7 +786,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppDiretorTodoRoute: AppDiretorTodoRoute,
   AppBevskillsIndexRoute: AppBevskillsIndexRoute,
   AppDiretorIndexRoute: AppDiretorIndexRoute,
+  AppEpeasIndexRoute: AppEpeasIndexRoute,
   AppBevskillsCursoCourseIdRoute: AppBevskillsCursoCourseIdRoute,
+  AppEpeasContratoContratoIdRoute: AppEpeasContratoContratoIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)

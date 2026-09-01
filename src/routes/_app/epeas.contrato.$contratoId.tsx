@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Check, Plus } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -127,9 +127,9 @@ function ContratoEpeasPage() {
       </header>
 
       {abertas.length > 0 && (
-        <Card className="border-destructive/50 bg-destructive/5">
+        <Card className="border-status-danger/40 bg-status-danger-bg/40">
           <CardContent className="flex flex-col gap-2 p-4">
-            <p className="text-destructive flex items-center gap-2 text-sm font-semibold">
+            <p className="text-status-danger flex items-center gap-2 text-sm font-semibold">
               <AlertTriangle className="size-4" />
               {abertas.length} exceção{abertas.length > 1 ? 'ões' : ''} em aberto
             </p>
@@ -151,9 +151,9 @@ function ContratoEpeasPage() {
       )}
 
       {alerta && (
-        <Card className={alerta.nivel === 'critico' ? 'border-destructive/50' : 'border-amber-500/50'}>
+        <Card className={alerta.nivel === 'critico' ? 'border-status-danger/40 bg-status-danger-bg/30' : 'border-status-warning/40 bg-status-warning-bg/30'}>
           <CardContent className="p-4 text-sm">
-            <span className={alerta.nivel === 'critico' ? 'text-destructive font-semibold' : 'font-semibold text-amber-600'}>
+            <span className={alerta.nivel === 'critico' ? 'text-status-danger font-semibold' : 'text-status-warning font-semibold'}>
               {alerta.nivel === 'critico' ? 'Pagamento crítico' : 'Pagamento pendente'}
             </span>{' '}
             — aguardando há {alerta.dias} dias.
@@ -244,24 +244,29 @@ function ContratoEpeasPage() {
           </Campo>
           <div className="sm:col-span-2">
             <Campo label="Assessores do projeto">
-              <div className="flex flex-wrap gap-1.5">
-                {pessoas.map((p) => {
-                  const dentro = c.assessores_projeto_ids.includes(p.person.id)
-                  if (!dentro && c.assessores_projeto_ids.length >= 12) return null
-                  return dentro ? (
-                    <Button
-                      key={p.person.id}
-                      size="sm"
-                      variant="default"
+              <div className="flex flex-wrap items-center gap-1.5">
+                {c.assessores_projeto_ids.length === 0 && (
+                  <span className="text-muted-foreground text-sm">Ninguém alocado ainda.</span>
+                )}
+                {c.assessores_projeto_ids.map((id) => {
+                  const p = pessoas.find((x) => x.person.id === id)
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      disabled={mutPatch.isPending}
+                      aria-label={`Remover ${p?.person.nome ?? 'assessor'} do projeto`}
                       onClick={() =>
                         mutPatch.mutate({
-                          assessores_projeto_ids: c.assessores_projeto_ids.filter((x) => x !== p.person.id),
+                          assessores_projeto_ids: c.assessores_projeto_ids.filter((x) => x !== id),
                         })
                       }
+                      className="bg-accent text-accent-foreground hover:bg-accent/70 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
                     >
-                      {p.person.nome.split(' ')[0]} ×
-                    </Button>
-                  ) : null
+                      {p?.person.nome ?? 'Removido'}
+                      <X className="size-3" aria-hidden="true" />
+                    </button>
+                  )
                 })}
                 <Sel
                   value=""

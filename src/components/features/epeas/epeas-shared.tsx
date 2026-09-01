@@ -26,8 +26,8 @@ export function ProgressoEtapa({ etapa }: { etapa: E.EtapaMacro }) {
   const pct = Math.round(((i + 1) / E.ETAPAS_MACRO.length) * 100)
   return (
     <div className="flex items-center gap-2">
-      <div className="bg-muted h-1.5 w-24 overflow-hidden rounded-full">
-        <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
+      <div className="bg-muted h-1 w-20 overflow-hidden rounded-full">
+        <div className="bg-primary/70 h-full rounded-full" style={{ width: `${pct}%` }} />
       </div>
       <span className="text-muted-foreground text-xs tabular-nums">
         {i + 1}/{E.ETAPAS_MACRO.length}
@@ -53,7 +53,15 @@ export function ContratoCard({
   const status = E.statusEtapa(c)
 
   return (
-    <Card className={c.excecoes_abertas > 0 ? 'border-destructive/50' : undefined}>
+    <Card
+      className={
+        c.excecoes_abertas > 0
+          ? 'border-status-danger/40 bg-status-danger-bg/30'
+          : status.saude === 'atrasado'
+            ? 'border-status-warning/40'
+            : undefined
+      }
+    >
       <CardContent className="flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -102,7 +110,7 @@ export function ContratoCard({
             )}
             {alerta && (
               <span
-                className={`text-xs font-medium ${alerta.nivel === 'critico' ? 'text-destructive' : 'text-amber-600'}`}
+                className={`text-xs font-medium ${alerta.nivel === 'critico' ? 'text-status-danger' : 'text-status-warning'}`}
               >
                 {alerta.nivel === 'critico' ? 'Pagamento crítico' : 'Pagamento pendente'} · há{' '}
                 {alerta.dias} dias
@@ -114,9 +122,9 @@ export function ContratoCard({
             <span
               className={`text-xs ${
                 status.saude === 'atrasado'
-                  ? 'text-destructive font-medium'
+                  ? 'text-status-danger font-medium'
                   : status.saude === 'atencao'
-                    ? 'text-amber-600'
+                    ? 'text-status-warning'
                     : 'text-muted-foreground'
               }`}
             >

@@ -40,7 +40,7 @@ import * as E from '@/lib/epeas'
 import { isDirexMember } from '@/lib/permissions'
 import { ContratoCard, Vazio } from '@/components/features/epeas/epeas-shared'
 
-export const Route = createFileRoute('/_app/epeas')({ component: EpeasPage })
+export const Route = createFileRoute('/_app/epeas/')({ component: EpeasPage })
 
 type Vista = 'pendencias' | 'pipeline' | 'todos'
 
@@ -265,9 +265,9 @@ function Indicador({
   destaque?: boolean
 }) {
   return (
-    <Card className={destaque ? 'border-primary/40' : undefined}>
+    <Card className={destaque ? 'border-primary/50 bg-accent/40' : 'bg-card/60'}>
       <CardContent className="p-3">
-        <p className={`text-2xl font-bold ${tom === 'danger' && valor > 0 ? 'text-destructive' : ''}`}>
+        <p className={`text-2xl font-semibold ${tom === 'danger' && valor > 0 ? 'text-status-danger' : ''}`}>
           {valor}
         </p>
         <p className="text-muted-foreground text-xs">{rotulo}</p>
@@ -294,7 +294,7 @@ function Pipeline({
           (c) => E.faseDaEtapa(c.etapa_macro) === fase && c.etapa_macro !== 'projetos_entregue',
         )
         return (
-          <div key={fase} className="flex flex-col gap-2">
+          <div key={fase} className="bg-muted/40 flex flex-col gap-2 rounded-xl p-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">{E.FASE_LABELS[fase]}</h2>
               <Badge variant="neutral">{doFase.length}</Badge>
@@ -311,12 +311,12 @@ function Pipeline({
                     key={c.id}
                     to="/epeas/contrato/$contratoId"
                     params={{ contratoId: c.contrato_id }}
-                    className={`hover:bg-accent/40 rounded-lg border-l-4 border-y border-r p-3 transition-colors ${
+                    className={`bg-card hover:bg-accent/50 block rounded-lg border border-l-[3px] p-3 transition-colors ${
                       s.saude === 'atrasado'
-                        ? 'border-l-destructive'
+                        ? 'border-l-status-danger'
                         : s.saude === 'atencao'
-                          ? 'border-l-amber-500'
-                          : 'border-l-emerald-500'
+                          ? 'border-l-status-warning'
+                          : 'border-l-primary'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
@@ -331,7 +331,7 @@ function Pipeline({
                           </span>
                         )}
                         {c.excecoes_abertas > 0 && (
-                          <AlertTriangle className="text-destructive size-3.5" aria-label="Exceção aberta" />
+                          <AlertTriangle className="text-status-danger size-3.5" aria-label="Exceção aberta" />
                         )}
                       </div>
                     </div>
@@ -339,7 +339,7 @@ function Pipeline({
                       {E.ETAPA_MACRO_LABELS[c.etapa_macro]}
                     </p>
                     <p
-                      className={`mt-1 text-xs ${s.saude === 'atrasado' ? 'text-destructive font-medium' : 'text-muted-foreground'}`}
+                      className={`mt-1 text-xs ${s.saude === 'atrasado' ? 'text-status-danger font-medium' : 'text-muted-foreground'}`}
                     >
                       há {s.dias}d {s.saude === 'atrasado' && `· prazo ${s.sla}d`}
                     </p>

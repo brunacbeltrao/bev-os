@@ -68,7 +68,7 @@ export function ChecklistEtapa({
                 ? 'bg-status-danger-bg text-status-danger'
                 : status.saude === 'atencao'
                   ? 'bg-status-warning-bg text-status-warning'
-                  : 'bg-status-success-bg text-status-success'
+                  : 'bg-accent text-accent-foreground'
             }`}
           >
             {status.saude === 'atrasado' ? 'Atrasado' : status.saude === 'atencao' ? 'No limite' : 'No prazo'}
