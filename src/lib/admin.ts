@@ -114,3 +114,43 @@ export async function updateSubarea(id: string, nome: string, slug: string) {
   const { error } = await supabase.from('subareas').update({ nome, slug }).eq('id', id)
   if (error) throw error
 }
+
+// ---------------------------------------------------------------------------
+// Excluir cadastro (Diretoria)
+// ---------------------------------------------------------------------------
+
+export interface ResumoExclusao {
+  status: 'ok' | 'nao_encontrado'
+  nome: string
+  email: string
+  tem_conta: boolean
+  apaga_junto: {
+    bevcoins: number
+    bevcoins_saldo: number
+    advertencias: number
+    agravos: number
+    pdi: number
+    ocupacoes: number
+  }
+  bloqueios: { o_que: string; quantos: number }[]
+}
+
+/**
+ * O que a exclusão levaria junto e o que a impede.
+ *
+ * Existe porque as FKs de `people` se dividem: BevCoins, warnings, agravos
+ * e PDI somem em CASCADE — sem aviso — enquanto contratos e demandas
+ * criados pela pessoa travam a operação. Mostrar antes evita as duas
+ * surpresas.
+ */
+export async function getResumoExclusao(personId: string): Promise<ResumoExclusao> {
+  const { data, error } = await supabase.rpc('resumo_exclusao_cadastro', { p_person_id: personId })
+  if (error) throw error
+  return data as ResumoExclusao
+}
+
+export async function excluirCadastro(personId: string) {
+  const { data, error } = await supabase.rpc('excluir_cadastro', { p_person_id: personId })
+  if (error) throw error
+  return data as { status: string; nome: string; email: string }
+}

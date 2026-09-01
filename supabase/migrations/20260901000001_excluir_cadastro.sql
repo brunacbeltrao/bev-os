@@ -1,0 +1,18 @@
+-- ============================================================
+-- BEV OS · 01/09/2026 — JÁ APLICADO no Supabase.
+--
+-- Excluir cadastro de membro (somente Diretoria).
+--
+-- Não é um DELETE simples. As FKs de `people` se dividem:
+--   CASCADE  — BevCoins, warnings, agravos, PDI, probatório, presenças
+--   RESTRICT — contratos, demandas, eventos e atas que a pessoa criou
+--
+-- Duas funções: resumo_exclusao_cadastro() mostra o que some e o que
+-- impede; excluir_cadastro() só executa quando não há impedimento,
+-- recusa autoexclusão e exige is_direx().
+--
+-- Também: dedup da Sofia — o registro de sofiahora@ (com 418,13 em
+-- BevCoins) foi movido para sofiamaranhao@ e a entrada duplicada
+-- removida do roster.
+--
+-- Consulte o projeto Supabase para o DDL vigente.

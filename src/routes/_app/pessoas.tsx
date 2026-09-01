@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApp } from '@/lib/app-context'
 import { getDirectory, occupationAreaLabel, ROLE_LABELS } from '@/lib/org'
+import { isDirexMember } from '@/lib/permissions'
+import { ExcluirCadastro } from '@/components/features/pessoas/excluir-cadastro'
 import { initials } from '@/lib/utils'
 
 interface PessoasSearch {
@@ -28,7 +30,8 @@ export const Route = createFileRoute('/_app/pessoas')({
 })
 
 function PessoasPage() {
-  const { cycle } = useApp()
+  const { cycle, person: eu, occupations } = useApp()
+  const ehDirex = isDirexMember(occupations)
   const { q } = Route.useSearch()
   const [filtro, setFiltro] = useState(q ?? '')
 
@@ -107,6 +110,9 @@ function PessoasPage() {
                   <Badge variant="secondary">{ROLE_LABELS[occupation.role]}</Badge>
                   <Badge variant="outline">{occupationAreaLabel(occupation)}</Badge>
                   {occupation.is_hibrido && <Badge variant="info">Híbrido</Badge>}
+                  {ehDirex && person.id !== eu.id && (
+                    <ExcluirCadastro personId={person.id} nome={person.nome} />
+                  )}
                 </div>
               </CardContent>
             </Card>
