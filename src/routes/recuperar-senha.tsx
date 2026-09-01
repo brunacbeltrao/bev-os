@@ -7,7 +7,7 @@
  */
 import { useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { ArrowLeft, Loader2, MailCheck } from 'lucide-react'
+import { ArrowLeft, Loader2, MailCheck, UserPlus } from 'lucide-react'
 import { AuthLayout } from '@/components/layout/auth-layout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,14 +20,34 @@ function RecuperarSenhaPage() {
   const [email, setEmail] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [enviado, setEnviado] = useState(false)
+  const [semConta, setSemConta] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
     setErro(null)
+    setSemConta(null)
     setCarregando(true)
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    const alvo = email.trim().toLowerCase()
+
+    /*
+     * Quem está no roster mas ainda não criou conta cairia num beco sem
+     * saída: o Supabase responde 200 e não envia nada (proteção contra
+     * enumeração), e a pessoa fica esperando um e-mail que nunca chega.
+     * O roster já é consultável no cadastro, então checar aqui não expõe
+     * nada novo — e troca a espera por uma instrução concreta.
+     */
+    const { data: roster } = await supabase.rpc('check_roster_email', { p_email: alvo })
+    const status = (roster as { status?: string; nome?: string } | null)?.status
+
+    if (status === 'ok') {
+      setCarregando(false)
+      setSemConta((roster as { nome?: string }).nome ?? null)
+      return
+    }
+
+    const { error } = await supabase.auth.resetPasswordForEmail(alvo, {
       redirectTo: `${window.location.origin}/nova-senha`,
     })
 
@@ -44,6 +64,34 @@ function RecuperarSenhaPage() {
     // Confirmação genérica de propósito: dizer "esse e-mail não existe"
     // revelaria quem tem conta no sistema para qualquer pessoa.
     setEnviado(true)
+  }
+
+  if (semConta !== null) {
+    return (
+      <AuthLayout>
+        <div className="flex flex-col gap-4">
+          <div className="bg-accent text-accent-foreground flex size-10 items-center justify-center rounded-lg">
+            <UserPlus className="size-5" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight">
+              {semConta ? `${semConta.split(' ')[0]}, ` : ''}você ainda não tem conta
+            </h2>
+            <p className="text-muted-foreground mt-1.5 text-sm">
+              Seu e-mail está no quadro do ciclo, mas a conta ainda não foi criada — por isso não há
+              senha para recuperar. Crie a sua agora: leva menos de um minuto e seu cargo e área já
+              vêm preenchidos.
+            </p>
+          </div>
+          <Button asChild>
+            <Link to="/cadastro">Criar minha conta</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/login">Voltar para o login</Link>
+          </Button>
+        </div>
+      </AuthLayout>
+    )
   }
 
   if (enviado) {
