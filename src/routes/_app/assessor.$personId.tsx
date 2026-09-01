@@ -43,9 +43,9 @@ function AssessorPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-2 mb-3">
-        <Link to="/liderados">
+        <Link to="/pdi">
           <ArrowLeft className="size-4" />
-          Meus Liderados
+          Voltar ao PDI
         </Link>
       </Button>
 

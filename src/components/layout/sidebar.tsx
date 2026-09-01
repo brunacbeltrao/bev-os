@@ -19,9 +19,7 @@ import {
   Newspaper,
   Route as RouteIcon,
   ShieldCheck,
-  Sparkles,
   Target,
-  UserCog,
   Users,
   Wallet,
   Settings,
@@ -65,7 +63,6 @@ const GROUPS: ModuleGroup[] = [
     titulo: 'Vivência & Cultura',
     items: [
       { label: 'Bev News', icon: Newspaper, to: '/bev-news' },
-      { label: 'Benchs', icon: Sparkles, to: '/benchs' },
       { label: 'FID / BevCoins', icon: Coins, to: '/fid' },
     ],
   },
@@ -80,7 +77,6 @@ const GROUPS: ModuleGroup[] = [
     titulo: 'Pessoas & Desenvolvimento',
     items: [
       { label: 'PDI', icon: Target, to: '/pdi' },
-      { label: 'Meus Liderados', icon: UserCog, to: '/liderados', onlyLeaders: true },
       { label: 'Warnings', icon: Flag, to: '/warnings' },
       { label: 'Frequência', icon: ShieldCheck, to: '/frequencia' },
       { label: 'Pessoas', icon: Users, to: '/pessoas' },

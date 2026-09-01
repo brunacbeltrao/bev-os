@@ -25,7 +25,7 @@ import { initials } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 
 export function Topbar() {
-  const { person, primary, cycle, isLeader, isDirex, bevCoinsBalance } = useApp()
+  const { person, primary, cycle, bevCoinsBalance } = useApp()
   const navigate = useNavigate()
   const [menuAberto, setMenuAberto] = useState(false)
 
@@ -47,28 +47,6 @@ export function Topbar() {
           className="bg-sidebar flex w-72 flex-col gap-0 overflow-y-auto p-0 pt-10"
         >
           <SheetTitle className="sr-only">Navegação</SheetTitle>
-          <div className="flex flex-col gap-1 p-3 md:hidden border-b border-sidebar-border">
-            {isLeader && (
-              <Link
-                to="/gerente"
-                onClick={() => setMenuAberto(false)}
-                className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-md hover:bg-sidebar-accent"
-                activeProps={{ className: 'bg-primary/10 text-primary hover:bg-primary/20 font-bold' }}
-              >
-                Painel da Gerência
-              </Link>
-            )}
-            {isDirex && (
-              <Link
-                to="/diretor"
-                onClick={() => setMenuAberto(false)}
-                className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-2 rounded-md hover:bg-sidebar-accent"
-                activeProps={{ className: 'bg-primary/10 text-primary hover:bg-primary/20 font-bold' }}
-              >
-                Painel da Diretoria
-              </Link>
-            )}
-          </div>
           <SidebarContent onNavigate={() => setMenuAberto(false)} />
         </SheetContent>
       </Sheet>
@@ -84,28 +62,6 @@ export function Topbar() {
       </Link>
 
       <div className="ml-auto flex items-center gap-3">
-        {/* Painéis de Liderança na barra superior */}
-        <div className="hidden md:flex items-center gap-1.5">
-          {isLeader && (
-            <Link
-              to="/gerente"
-              className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md hover:bg-muted"
-              activeProps={{ className: 'bg-primary/10 text-primary hover:bg-primary/20' }}
-            >
-              Painel da Gerência
-            </Link>
-          )}
-          {isDirex && (
-            <Link
-              to="/diretor"
-              className="text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-md hover:bg-muted"
-              activeProps={{ className: 'bg-primary/10 text-primary hover:bg-primary/20' }}
-            >
-              Painel da Diretoria
-            </Link>
-          )}
-        </div>
-
         {/* Saldo de BevCoins */}
         <Link
           to="/fid"

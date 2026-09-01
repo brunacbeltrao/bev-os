@@ -23,8 +23,6 @@ import { Route as AppPessoasRouteImport } from './routes/_app/pessoas'
 import { Route as AppPerfilRouteImport } from './routes/_app/perfil'
 import { Route as AppPdiRouteImport } from './routes/_app/pdi'
 import { Route as AppMemoriaRouteImport } from './routes/_app/memoria'
-import { Route as AppLideradosRouteImport } from './routes/_app/liderados'
-import { Route as AppGerenteRouteImport } from './routes/_app/gerente'
 import { Route as AppFrequenciaRouteImport } from './routes/_app/frequencia'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as AppFidRouteImport } from './routes/_app/fid'
@@ -32,17 +30,10 @@ import { Route as AppDashboardsRouteImport } from './routes/_app/dashboards'
 import { Route as AppComunicadosRouteImport } from './routes/_app/comunicados'
 import { Route as AppComercialRouteImport } from './routes/_app/comercial'
 import { Route as AppBevNewsRouteImport } from './routes/_app/bev-news'
-import { Route as AppBenchsRouteImport } from './routes/_app/benchs'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppAdminPcRouteImport } from './routes/_app/admin-pc'
 import { Route as AppEpeasIndexRouteImport } from './routes/_app/epeas.index'
-import { Route as AppDiretorIndexRouteImport } from './routes/_app/diretor/index'
 import { Route as AppBevskillsIndexRouteImport } from './routes/_app/bevskills/index'
-import { Route as AppDiretorTodoRouteImport } from './routes/_app/diretor/todo'
-import { Route as AppDiretorProblemasRouteImport } from './routes/_app/diretor/problemas'
-import { Route as AppDiretorLideradosRouteImport } from './routes/_app/diretor/liderados'
-import { Route as AppDiretorDecisoesRouteImport } from './routes/_app/diretor/decisoes'
-import { Route as AppDiretorAtasRouteImport } from './routes/_app/diretor/atas'
 import { Route as AppBevskillsGerenciarRouteImport } from './routes/_app/bevskills/gerenciar'
 import { Route as AppAssessorPersonIdRouteImport } from './routes/_app/assessor.$personId'
 import { Route as AppEpeasContratoContratoIdRouteImport } from './routes/_app/epeas.contrato.$contratoId'
@@ -117,16 +108,6 @@ const AppMemoriaRoute = AppMemoriaRouteImport.update({
   path: '/memoria',
   getParentRoute: () => AppRoute,
 } as any)
-const AppLideradosRoute = AppLideradosRouteImport.update({
-  id: '/liderados',
-  path: '/liderados',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppGerenteRoute = AppGerenteRouteImport.update({
-  id: '/gerente',
-  path: '/gerente',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppFrequenciaRoute = AppFrequenciaRouteImport.update({
   id: '/frequencia',
   path: '/frequencia',
@@ -162,11 +143,6 @@ const AppBevNewsRoute = AppBevNewsRouteImport.update({
   path: '/bev-news',
   getParentRoute: () => AppRoute,
 } as any)
-const AppBenchsRoute = AppBenchsRouteImport.update({
-  id: '/benchs',
-  path: '/benchs',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppAgendaRoute = AppAgendaRouteImport.update({
   id: '/agenda',
   path: '/agenda',
@@ -182,39 +158,9 @@ const AppEpeasIndexRoute = AppEpeasIndexRouteImport.update({
   path: '/epeas/',
   getParentRoute: () => AppRoute,
 } as any)
-const AppDiretorIndexRoute = AppDiretorIndexRouteImport.update({
-  id: '/diretor/',
-  path: '/diretor/',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppBevskillsIndexRoute = AppBevskillsIndexRouteImport.update({
   id: '/bevskills/',
   path: '/bevskills/',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDiretorTodoRoute = AppDiretorTodoRouteImport.update({
-  id: '/diretor/todo',
-  path: '/diretor/todo',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDiretorProblemasRoute = AppDiretorProblemasRouteImport.update({
-  id: '/diretor/problemas',
-  path: '/diretor/problemas',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDiretorLideradosRoute = AppDiretorLideradosRouteImport.update({
-  id: '/diretor/liderados',
-  path: '/diretor/liderados',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDiretorDecisoesRoute = AppDiretorDecisoesRouteImport.update({
-  id: '/diretor/decisoes',
-  path: '/diretor/decisoes',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDiretorAtasRoute = AppDiretorAtasRouteImport.update({
-  id: '/diretor/atas',
-  path: '/diretor/atas',
   getParentRoute: () => AppRoute,
 } as any)
 const AppBevskillsGerenciarRoute = AppBevskillsGerenciarRouteImport.update({
@@ -248,7 +194,6 @@ export interface FileRoutesByFullPath {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin-pc': typeof AppAdminPcRoute
   '/agenda': typeof AppAgendaRoute
-  '/benchs': typeof AppBenchsRoute
   '/bev-news': typeof AppBevNewsRoute
   '/comercial': typeof AppComercialRoute
   '/comunicados': typeof AppComunicadosRoute
@@ -256,8 +201,6 @@ export interface FileRoutesByFullPath {
   '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
-  '/gerente': typeof AppGerenteRoute
-  '/liderados': typeof AppLideradosRoute
   '/memoria': typeof AppMemoriaRoute
   '/pdi': typeof AppPdiRoute
   '/perfil': typeof AppPerfilRoute
@@ -268,13 +211,7 @@ export interface FileRoutesByFullPath {
   '/warnings': typeof AppWarningsRoute
   '/assessor/$personId': typeof AppAssessorPersonIdRoute
   '/bevskills/gerenciar': typeof AppBevskillsGerenciarRoute
-  '/diretor/atas': typeof AppDiretorAtasRoute
-  '/diretor/decisoes': typeof AppDiretorDecisoesRoute
-  '/diretor/liderados': typeof AppDiretorLideradosRoute
-  '/diretor/problemas': typeof AppDiretorProblemasRoute
-  '/diretor/todo': typeof AppDiretorTodoRoute
   '/bevskills/': typeof AppBevskillsIndexRoute
-  '/diretor/': typeof AppDiretorIndexRoute
   '/epeas/': typeof AppEpeasIndexRoute
   '/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
   '/epeas/contrato/$contratoId': typeof AppEpeasContratoContratoIdRoute
@@ -286,7 +223,6 @@ export interface FileRoutesByTo {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/admin-pc': typeof AppAdminPcRoute
   '/agenda': typeof AppAgendaRoute
-  '/benchs': typeof AppBenchsRoute
   '/bev-news': typeof AppBevNewsRoute
   '/comercial': typeof AppComercialRoute
   '/comunicados': typeof AppComunicadosRoute
@@ -294,8 +230,6 @@ export interface FileRoutesByTo {
   '/fid': typeof AppFidRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/frequencia': typeof AppFrequenciaRoute
-  '/gerente': typeof AppGerenteRoute
-  '/liderados': typeof AppLideradosRoute
   '/memoria': typeof AppMemoriaRoute
   '/pdi': typeof AppPdiRoute
   '/perfil': typeof AppPerfilRoute
@@ -307,13 +241,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/assessor/$personId': typeof AppAssessorPersonIdRoute
   '/bevskills/gerenciar': typeof AppBevskillsGerenciarRoute
-  '/diretor/atas': typeof AppDiretorAtasRoute
-  '/diretor/decisoes': typeof AppDiretorDecisoesRoute
-  '/diretor/liderados': typeof AppDiretorLideradosRoute
-  '/diretor/problemas': typeof AppDiretorProblemasRoute
-  '/diretor/todo': typeof AppDiretorTodoRoute
   '/bevskills': typeof AppBevskillsIndexRoute
-  '/diretor': typeof AppDiretorIndexRoute
   '/epeas': typeof AppEpeasIndexRoute
   '/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
   '/epeas/contrato/$contratoId': typeof AppEpeasContratoContratoIdRoute
@@ -327,7 +255,6 @@ export interface FileRoutesById {
   '/recuperar-senha': typeof RecuperarSenhaRoute
   '/_app/admin-pc': typeof AppAdminPcRoute
   '/_app/agenda': typeof AppAgendaRoute
-  '/_app/benchs': typeof AppBenchsRoute
   '/_app/bev-news': typeof AppBevNewsRoute
   '/_app/comercial': typeof AppComercialRoute
   '/_app/comunicados': typeof AppComunicadosRoute
@@ -335,8 +262,6 @@ export interface FileRoutesById {
   '/_app/fid': typeof AppFidRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/_app/frequencia': typeof AppFrequenciaRoute
-  '/_app/gerente': typeof AppGerenteRoute
-  '/_app/liderados': typeof AppLideradosRoute
   '/_app/memoria': typeof AppMemoriaRoute
   '/_app/pdi': typeof AppPdiRoute
   '/_app/perfil': typeof AppPerfilRoute
@@ -348,13 +273,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/assessor/$personId': typeof AppAssessorPersonIdRoute
   '/_app/bevskills/gerenciar': typeof AppBevskillsGerenciarRoute
-  '/_app/diretor/atas': typeof AppDiretorAtasRoute
-  '/_app/diretor/decisoes': typeof AppDiretorDecisoesRoute
-  '/_app/diretor/liderados': typeof AppDiretorLideradosRoute
-  '/_app/diretor/problemas': typeof AppDiretorProblemasRoute
-  '/_app/diretor/todo': typeof AppDiretorTodoRoute
   '/_app/bevskills/': typeof AppBevskillsIndexRoute
-  '/_app/diretor/': typeof AppDiretorIndexRoute
   '/_app/epeas/': typeof AppEpeasIndexRoute
   '/_app/bevskills/curso/$courseId': typeof AppBevskillsCursoCourseIdRoute
   '/_app/epeas/contrato/$contratoId': typeof AppEpeasContratoContratoIdRoute
@@ -369,7 +288,6 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/admin-pc'
     | '/agenda'
-    | '/benchs'
     | '/bev-news'
     | '/comercial'
     | '/comunicados'
@@ -377,8 +295,6 @@ export interface FileRouteTypes {
     | '/fid'
     | '/financeiro'
     | '/frequencia'
-    | '/gerente'
-    | '/liderados'
     | '/memoria'
     | '/pdi'
     | '/perfil'
@@ -389,13 +305,7 @@ export interface FileRouteTypes {
     | '/warnings'
     | '/assessor/$personId'
     | '/bevskills/gerenciar'
-    | '/diretor/atas'
-    | '/diretor/decisoes'
-    | '/diretor/liderados'
-    | '/diretor/problemas'
-    | '/diretor/todo'
     | '/bevskills/'
-    | '/diretor/'
     | '/epeas/'
     | '/bevskills/curso/$courseId'
     | '/epeas/contrato/$contratoId'
@@ -407,7 +317,6 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/admin-pc'
     | '/agenda'
-    | '/benchs'
     | '/bev-news'
     | '/comercial'
     | '/comunicados'
@@ -415,8 +324,6 @@ export interface FileRouteTypes {
     | '/fid'
     | '/financeiro'
     | '/frequencia'
-    | '/gerente'
-    | '/liderados'
     | '/memoria'
     | '/pdi'
     | '/perfil'
@@ -428,13 +335,7 @@ export interface FileRouteTypes {
     | '/'
     | '/assessor/$personId'
     | '/bevskills/gerenciar'
-    | '/diretor/atas'
-    | '/diretor/decisoes'
-    | '/diretor/liderados'
-    | '/diretor/problemas'
-    | '/diretor/todo'
     | '/bevskills'
-    | '/diretor'
     | '/epeas'
     | '/bevskills/curso/$courseId'
     | '/epeas/contrato/$contratoId'
@@ -447,7 +348,6 @@ export interface FileRouteTypes {
     | '/recuperar-senha'
     | '/_app/admin-pc'
     | '/_app/agenda'
-    | '/_app/benchs'
     | '/_app/bev-news'
     | '/_app/comercial'
     | '/_app/comunicados'
@@ -455,8 +355,6 @@ export interface FileRouteTypes {
     | '/_app/fid'
     | '/_app/financeiro'
     | '/_app/frequencia'
-    | '/_app/gerente'
-    | '/_app/liderados'
     | '/_app/memoria'
     | '/_app/pdi'
     | '/_app/perfil'
@@ -468,13 +366,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/assessor/$personId'
     | '/_app/bevskills/gerenciar'
-    | '/_app/diretor/atas'
-    | '/_app/diretor/decisoes'
-    | '/_app/diretor/liderados'
-    | '/_app/diretor/problemas'
-    | '/_app/diretor/todo'
     | '/_app/bevskills/'
-    | '/_app/diretor/'
     | '/_app/epeas/'
     | '/_app/bevskills/curso/$courseId'
     | '/_app/epeas/contrato/$contratoId'
@@ -588,20 +480,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMemoriaRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/liderados': {
-      id: '/_app/liderados'
-      path: '/liderados'
-      fullPath: '/liderados'
-      preLoaderRoute: typeof AppLideradosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/gerente': {
-      id: '/_app/gerente'
-      path: '/gerente'
-      fullPath: '/gerente'
-      preLoaderRoute: typeof AppGerenteRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/frequencia': {
       id: '/_app/frequencia'
       path: '/frequencia'
@@ -651,13 +529,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppBevNewsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/benchs': {
-      id: '/_app/benchs'
-      path: '/benchs'
-      fullPath: '/benchs'
-      preLoaderRoute: typeof AppBenchsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/agenda': {
       id: '/_app/agenda'
       path: '/agenda'
@@ -679,53 +550,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEpeasIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/diretor/': {
-      id: '/_app/diretor/'
-      path: '/diretor'
-      fullPath: '/diretor/'
-      preLoaderRoute: typeof AppDiretorIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/bevskills/': {
       id: '/_app/bevskills/'
       path: '/bevskills'
       fullPath: '/bevskills/'
       preLoaderRoute: typeof AppBevskillsIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/diretor/todo': {
-      id: '/_app/diretor/todo'
-      path: '/diretor/todo'
-      fullPath: '/diretor/todo'
-      preLoaderRoute: typeof AppDiretorTodoRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/diretor/problemas': {
-      id: '/_app/diretor/problemas'
-      path: '/diretor/problemas'
-      fullPath: '/diretor/problemas'
-      preLoaderRoute: typeof AppDiretorProblemasRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/diretor/liderados': {
-      id: '/_app/diretor/liderados'
-      path: '/diretor/liderados'
-      fullPath: '/diretor/liderados'
-      preLoaderRoute: typeof AppDiretorLideradosRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/diretor/decisoes': {
-      id: '/_app/diretor/decisoes'
-      path: '/diretor/decisoes'
-      fullPath: '/diretor/decisoes'
-      preLoaderRoute: typeof AppDiretorDecisoesRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/diretor/atas': {
-      id: '/_app/diretor/atas'
-      path: '/diretor/atas'
-      fullPath: '/diretor/atas'
-      preLoaderRoute: typeof AppDiretorAtasRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/bevskills/gerenciar': {
@@ -762,7 +591,6 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAdminPcRoute: typeof AppAdminPcRoute
   AppAgendaRoute: typeof AppAgendaRoute
-  AppBenchsRoute: typeof AppBenchsRoute
   AppBevNewsRoute: typeof AppBevNewsRoute
   AppComercialRoute: typeof AppComercialRoute
   AppComunicadosRoute: typeof AppComunicadosRoute
@@ -770,8 +598,6 @@ interface AppRouteChildren {
   AppFidRoute: typeof AppFidRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppFrequenciaRoute: typeof AppFrequenciaRoute
-  AppGerenteRoute: typeof AppGerenteRoute
-  AppLideradosRoute: typeof AppLideradosRoute
   AppMemoriaRoute: typeof AppMemoriaRoute
   AppPdiRoute: typeof AppPdiRoute
   AppPerfilRoute: typeof AppPerfilRoute
@@ -783,13 +609,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppAssessorPersonIdRoute: typeof AppAssessorPersonIdRoute
   AppBevskillsGerenciarRoute: typeof AppBevskillsGerenciarRoute
-  AppDiretorAtasRoute: typeof AppDiretorAtasRoute
-  AppDiretorDecisoesRoute: typeof AppDiretorDecisoesRoute
-  AppDiretorLideradosRoute: typeof AppDiretorLideradosRoute
-  AppDiretorProblemasRoute: typeof AppDiretorProblemasRoute
-  AppDiretorTodoRoute: typeof AppDiretorTodoRoute
   AppBevskillsIndexRoute: typeof AppBevskillsIndexRoute
-  AppDiretorIndexRoute: typeof AppDiretorIndexRoute
   AppEpeasIndexRoute: typeof AppEpeasIndexRoute
   AppBevskillsCursoCourseIdRoute: typeof AppBevskillsCursoCourseIdRoute
   AppEpeasContratoContratoIdRoute: typeof AppEpeasContratoContratoIdRoute
@@ -798,7 +618,6 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdminPcRoute: AppAdminPcRoute,
   AppAgendaRoute: AppAgendaRoute,
-  AppBenchsRoute: AppBenchsRoute,
   AppBevNewsRoute: AppBevNewsRoute,
   AppComercialRoute: AppComercialRoute,
   AppComunicadosRoute: AppComunicadosRoute,
@@ -806,8 +625,6 @@ const AppRouteChildren: AppRouteChildren = {
   AppFidRoute: AppFidRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppFrequenciaRoute: AppFrequenciaRoute,
-  AppGerenteRoute: AppGerenteRoute,
-  AppLideradosRoute: AppLideradosRoute,
   AppMemoriaRoute: AppMemoriaRoute,
   AppPdiRoute: AppPdiRoute,
   AppPerfilRoute: AppPerfilRoute,
@@ -819,13 +636,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppAssessorPersonIdRoute: AppAssessorPersonIdRoute,
   AppBevskillsGerenciarRoute: AppBevskillsGerenciarRoute,
-  AppDiretorAtasRoute: AppDiretorAtasRoute,
-  AppDiretorDecisoesRoute: AppDiretorDecisoesRoute,
-  AppDiretorLideradosRoute: AppDiretorLideradosRoute,
-  AppDiretorProblemasRoute: AppDiretorProblemasRoute,
-  AppDiretorTodoRoute: AppDiretorTodoRoute,
   AppBevskillsIndexRoute: AppBevskillsIndexRoute,
-  AppDiretorIndexRoute: AppDiretorIndexRoute,
   AppEpeasIndexRoute: AppEpeasIndexRoute,
   AppBevskillsCursoCourseIdRoute: AppBevskillsCursoCourseIdRoute,
   AppEpeasContratoContratoIdRoute: AppEpeasContratoContratoIdRoute,
