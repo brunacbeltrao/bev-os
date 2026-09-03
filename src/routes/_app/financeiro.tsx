@@ -54,6 +54,24 @@ import { isGestaoLideranca } from '@/lib/permissions'
 import * as F from '@/lib/financeiro'
 import { cn } from '@/lib/utils'
 
+/**
+ * Abre um comprovante do bucket privado `financeiro` por URL assinada.
+ *
+ * A aba é aberta antes do await de propósito: fora do gesto do clique o
+ * navegador trata window.open como popup e bloqueia.
+ */
+async function abrirComprovante(path: string) {
+  const aba = window.open('', '_blank', 'noopener,noreferrer')
+  try {
+    const url = await F.urlComprovante(path)
+    if (aba) aba.location.href = url
+    else window.location.href = url
+  } catch {
+    aba?.close()
+    toast.error('Não foi possível abrir o comprovante.')
+  }
+}
+
 export const Route = createFileRoute('/_app/financeiro')({ component: FinanceiroPage })
 
 const { fmtBRL } = F
@@ -532,16 +550,15 @@ function CaixaTab({ podeGerir }: { podeGerir: boolean }) {
               <Badge variant="secondary" className="hidden sm:inline-flex">
                 {F.CATEGORIA_LABELS[e.categoria] ?? e.categoria}
               </Badge>
-              {e.comprovante_url && (
-                <a
-                  href={e.comprovante_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              {e.comprovante_path && (
+                <button
+                  type="button"
+                  onClick={() => abrirComprovante(e.comprovante_path!)}
                   className="text-muted-foreground hover:text-foreground"
                   title="Ver comprovante"
                 >
                   <Paperclip className="size-4" />
-                </a>
+                </button>
               )}
               <span
                 className={cn(
@@ -777,15 +794,14 @@ function SolicitacoesTab() {
                     </p>
                   )}
                 </div>
-                {r.comprovante_url && (
-                  <a
-                    href={r.comprovante_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {r.comprovante_path && (
+                  <button
+                    type="button"
+                    onClick={() => abrirComprovante(r.comprovante_path!)}
                     className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
                   >
                     <Paperclip className="size-3.5" /> Comprovante
-                  </a>
+                  </button>
                 )}
                 <span className="text-sm font-semibold tabular-nums">{fmtBRL(r.valor)}</span>
                 {r.status === 'pendente' && (
@@ -827,15 +843,14 @@ function SolicitacoesTab() {
                 {aberta.descricao && (
                   <p className="text-muted-foreground mt-2 text-xs">{aberta.descricao}</p>
                 )}
-                {aberta.comprovante_url && (
-                  <a
-                    href={aberta.comprovante_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {aberta.comprovante_path && (
+                  <button
+                    type="button"
+                    onClick={() => abrirComprovante(aberta.comprovante_path!)}
                     className="text-primary mt-2 inline-flex items-center gap-1 text-xs underline"
                   >
                     <Paperclip className="size-3.5" /> Abrir comprovante
-                  </a>
+                  </button>
                 )}
               </div>
               <Field label="Resposta ao solicitante (opcional)">
@@ -921,7 +936,7 @@ function MinhasTab() {
     }
     setEnviando(true)
     try {
-      const url = arquivo ? await F.uploadComprovante(arquivo, person.id) : null
+      const caminho = arquivo ? await F.uploadComprovante(arquivo, person.id) : null
       await F.createFinanceRequest({
         cycle_id: cycle.id,
         solicitante_id: person.id,
@@ -930,7 +945,7 @@ function MinhasTab() {
         descricao: descricao.trim() || null,
         valor: v,
         categoria,
-        comprovante_url: url,
+        comprovante_path: caminho,
       })
       toast.success('Solicitação enviada às lideranças de Gestão.')
       limpar()

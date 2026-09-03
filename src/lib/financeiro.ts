@@ -83,7 +83,7 @@ export interface FinanceEntry {
   descricao: string
   data: string
   categoria: FinanceCategoria
-  comprovante_url: string | null
+  comprovante_path: string | null
   subarea_id: string | null
   cycle_id: string
   subarea?: { nome: string } | null
@@ -107,7 +107,7 @@ const FinanceEntrySchema = z.object({
   descricao: z.string(),
   data: z.string(),
   categoria: z.string().default('outros'),
-  comprovante_url: z.string().nullable().optional().default(null),
+  comprovante_path: z.string().nullable().optional().default(null),
   subarea_id: z.string().nullable(),
   cycle_id: z.string(),
   subarea: z.object({ nome: z.string() }).nullable().optional(),
@@ -115,7 +115,7 @@ const FinanceEntrySchema = z.object({
 })
 
 const ENTRY_SELECT =
-  'id, tipo, valor, descricao, data, categoria, comprovante_url, subarea_id, cycle_id, subarea:subareas(nome), responsavel:people!finance_entries_aprovado_por_fkey(nome)'
+  'id, tipo, valor, descricao, data, categoria, comprovante_path, subarea_id, cycle_id, subarea:subareas(nome), responsavel:people!finance_entries_aprovado_por_fkey(nome)'
 
 export async function getFinanceEntries(cycleId: string): Promise<FinanceEntry[]> {
   const { data, error } = await supabase
@@ -161,7 +161,7 @@ export interface NewFinanceEntry {
   data: string
   categoria: FinanceCategoria
   subarea_id: string | null
-  comprovante_url?: string | null
+  comprovante_path?: string | null
   aprovado_por: string
 }
 
@@ -175,7 +175,7 @@ export async function createFinanceEntry(input: NewFinanceEntry): Promise<string
       data: input.data,
       categoria: input.categoria,
       subarea_id: input.subarea_id,
-      comprovante_url: input.comprovante_url ?? null,
+      comprovante_path: input.comprovante_path ?? null,
       aprovado_por: input.aprovado_por,
       criado_por: input.aprovado_por,
     })
@@ -247,7 +247,7 @@ export interface FinanceRequest {
   descricao: string | null
   valor: number
   categoria: FinanceCategoria
-  comprovante_url: string | null
+  comprovante_path: string | null
   status: RequestStatus
   avaliado_por: string | null
   avaliado_em: string | null
@@ -282,7 +282,7 @@ export interface NewFinanceRequest {
   descricao: string | null
   valor: number
   categoria: FinanceCategoria
-  comprovante_url: string | null
+  comprovante_path: string | null
 }
 
 export async function createFinanceRequest(input: NewFinanceRequest): Promise<void> {
@@ -317,7 +317,7 @@ export async function decideFinanceRequest(opts: {
       data: new Date().toISOString().slice(0, 10),
       categoria: request.tipo,
       subarea_id: null,
-      comprovante_url: request.comprovante_url,
+      comprovante_path: request.comprovante_path,
       aprovado_por: avaliadoPor,
     })
   }
@@ -339,7 +339,15 @@ export async function decideFinanceRequest(opts: {
 // Comprovantes
 // ---------------------------------------------------------------------------
 
-/** Sobe o comprovante para o bucket `financeiro` e devolve a URL pública. */
+/**
+ * Sobe o comprovante para o bucket privado `financeiro` e devolve o
+ * caminho do objeto — não uma URL.
+ *
+ * A primeira pasta do caminho é o id da pessoa, e é isso que a policy de
+ * storage usa: cada um escreve e lê só a própria pasta, e a liderança de
+ * Gestão (quem avalia o reembolso) lê todas. Comprovante tem dado
+ * bancário e às vezes CPF, então não existe versão pública dele.
+ */
 export async function uploadComprovante(file: File, personId: string): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() || 'bin'
   const path = `${personId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
@@ -347,8 +355,16 @@ export async function uploadComprovante(file: File, personId: string): Promise<s
     .from('financeiro')
     .upload(path, file, { cacheControl: '3600', upsert: false })
   if (error) throw error
-  const { data } = supabase.storage.from('financeiro').getPublicUrl(path)
-  return data.publicUrl
+  return path
+}
+
+/** URL temporária (60s) para abrir um comprovante do bucket privado. */
+export async function urlComprovante(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('financeiro')
+    .createSignedUrl(path, 60)
+  if (error) throw error
+  return data.signedUrl
 }
 
 // ---------------------------------------------------------------------------
@@ -381,7 +397,7 @@ export function entriesToCsv(entries: FinanceEntry[]): string {
       e.subarea?.nome ?? 'Geral',
       e.valor.toFixed(2).replace('.', ','),
       e.responsavel?.nome ?? '',
-      e.comprovante_url ?? '',
+      e.comprovante_path ? 'sim' : '',
     ]
       .map(csvCell)
       .join(';'),

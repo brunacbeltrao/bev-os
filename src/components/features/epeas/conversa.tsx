@@ -33,6 +33,25 @@ export function Conversa({ contratoId, pessoas }: { contratoId: string; pessoas:
   const fileRef = useRef<HTMLInputElement>(null)
   const fim = useRef<HTMLDivElement>(null)
 
+  /**
+   * Abre o anexo por URL assinada (bucket privado).
+   *
+   * A aba é aberta ANTES do await: navegador só trata window.open como
+   * intenção do usuário dentro do clique, e depois do await o popup
+   * seria bloqueado.
+   */
+  async function abrirAnexo(path: string) {
+    const aba = window.open('', '_blank', 'noopener,noreferrer')
+    try {
+      const url = await E.urlAnexo(path)
+      if (aba) aba.location.href = url
+      else window.location.href = url
+    } catch {
+      aba?.close()
+      toast.error('Não foi possível abrir o anexo.')
+    }
+  }
+
   const q = useQuery({
     queryKey: ['epeas-conversa', contratoId],
     queryFn: () => E.getComentarios(contratoId),
@@ -139,15 +158,14 @@ export function Conversa({ contratoId, pessoas }: { contratoId: string; pessoas:
                     </div>
                     <p className="mt-0.5 text-sm whitespace-pre-wrap break-words">{c.corpo}</p>
                     {c.anexo_path && (
-                      <a
-                        href={E.urlAnexo(c.anexo_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() => abrirAnexo(c.anexo_path!)}
                         className="text-primary mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
                       >
                         <Paperclip className="size-3" aria-hidden="true" />
                         {c.anexo_nome ?? 'anexo'}
-                      </a>
+                      </button>
                     )}
                   </div>
                 </li>

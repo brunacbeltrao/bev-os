@@ -529,8 +529,23 @@ export async function enviarAnexo(contratoId: string, arquivo: File) {
   return { path, nome: arquivo.name }
 }
 
-export function urlAnexo(path: string) {
-  return supabase.storage.from('epeas').getPublicUrl(path).data.publicUrl
+/**
+ * URL temporária do anexo.
+ *
+ * O bucket `epeas` é privado: comprovante de pagamento, GRU e print de
+ * conversa com cliente não podem ficar legíveis para quem tiver o link.
+ * A URL assinada vale 60s — tempo de abrir, não de circular.
+ *
+ * Quem não enxerga o contrato não assina o anexo: a policy de storage
+ * chama epeas_pode_ver sobre a pasta (<contrato_id>/...), o mesmo teste
+ * que o RLS das tabelas usa.
+ */
+export async function urlAnexo(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('epeas')
+    .createSignedUrl(path, 60)
+  if (error) throw error
+  return data.signedUrl
 }
 
 // ===========================================================================
