@@ -1,6 +1,12 @@
 -- ============================================================
 -- BEV OS · 03/09/2026 — Auditoria de segurança.
 --
+-- ATENÇÃO: esta migration foi APLICADA e NÃO resolveu. `anon` nunca teve
+-- grant próprio nestas funções — ele herda de PUBLIC, então revogar dele
+-- é no-op. A correção que de fato fecha está em
+-- 20260903000005_revoga_public_security_definer.sql. Este arquivo fica
+-- porque está no histórico do banco.
+--
 -- 30 funções SECURITY DEFINER estavam com EXECUTE para `anon`.
 -- SECURITY DEFINER ignora RLS por construção, e o PostgREST publica
 -- toda função do schema `public` em /rest/v1/rpc/<nome>. Com a anon

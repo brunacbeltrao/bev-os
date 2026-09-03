@@ -13,19 +13,23 @@ produção foi alterado por esta auditoria — conferido ao final de cada teste.
 
 | # | Achado | Sev. | Estado |
 |---|---|---|---|
-| 1 | 30 funções `SECURITY DEFINER` executáveis por `anon` — dado real sem login | **Crítico** | corrigido nesta branch |
-| 2 | Policies de storage não recortam por permissão — qualquer pessoa logada lê todo comprovante | **Crítico** | corrigido nesta branch |
-| 3 | 5 buckets com `public = true` | **Alto** | `financeiro` e `epeas` corrigidos; `avisos` pendente (§3.3) |
-| 4 | `resumo_exclusao_cadastro` checa 7 de 28 FKs bloqueantes | **Alto** | corrigido nesta branch |
-| 5 | `is_gestao` sem filtro de cargo — 3 assessoras editam os 31 contratos | **Alto** | **decisão sua** (§2.3) |
-| 6 | `excluir_cadastro` apaga do roster e trava recadastro | **Médio** | **decisão sua** (§3.1) |
-| 7 | Exclusão de conta sem trilha de auditoria | **Médio** | pendente |
-| 8 | `epeas_contract_exceptions` editável por quem só pode ver | **Médio** | pendente |
-| 9 | `check_roster_email` devolve nome, cargo, área e diretoria a `anon` | **Médio** | pendente (§3.4) |
-| 10 | Buckets sem teto de tamanho nem lista de tipos | **Médio** | corrigido nesta branch |
+| 1 | 30 funções `SECURITY DEFINER` respondiam sem login | **Crítico** | **corrigido e aplicado** |
+| 2 | Policies de storage não recortam por permissão | **Crítico** | pronto, **falta deploy** |
+| 3 | 5 buckets com `public = true` | **Alto** | `financeiro`/`epeas` prontos, **falta deploy**; `avisos` pendente (§3.3) |
+| 4 | `resumo_exclusao_cadastro` checava 7 de 28 impedimentos | **Alto** | **corrigido e aplicado** |
+| 5 | `is_gestao` sem filtro de cargo | **Alto** | **decisão sua** (§2.3) |
+| 6 | `excluir_cadastro` travava o recadastro | **Médio** | **corrigido e aplicado** |
+| 7 | Exclusão de conta sem trilha | **Médio** | **corrigido e aplicado** |
+| 8 | `epeas_contract_exceptions` editável por quem só vê | **Médio** | **corrigido e aplicado** |
+| 9 | `check_roster_email` devolve nome, cargo, área e diretoria | **Médio** | **decisão sua** (§3.4) |
+| 10 | Buckets sem teto de tamanho nem lista de tipos | **Médio** | pronto, **falta deploy** |
 | 11 | Migrations sem DDL — banco é a única fonte de verdade | **Alto (processo)** | §5 |
 
-Quatro das suspeitas do handoff **não se confirmaram**. Estão em §4, com o teste que
+Tudo que está como "aplicado" foi aplicado no banco de produção e verificado
+depois, com o teste de que o vazamento fechou **e** o teste de que quem está
+logado não perdeu acesso.
+
+Cinco suspeitas do handoff **não se confirmaram**. Estão em §4, com o teste que
 mostra por quê — vale ler, porque duas delas eu ia jurar que eram falhas.
 
 ---
@@ -69,10 +73,31 @@ uuids pela API. O atacante precisa obter o uuid por outro caminho. Isso reduz a
 facilidade, não a exposição — uuid de pessoa aparece em URL de perfil, em payload de
 tela e em qualquer print compartilhado.
 
-**Corrigido** em `20260903000001_revoga_anon_security_definer.sql`: `revoke execute
-... from anon` nas 30. `check_roster_email` **fica**, porque `/cadastro` e
-`/recuperar-senha` rodam sem sessão e dependem dela — o que ela ainda expõe está em §3.4.
-`authenticated` não foi tocado.
+**Corrigido e aplicado** — mas a primeira tentativa não funcionou, e o motivo
+importa:
+
+`revoke execute ... from anon` **não teve efeito nenhum**. `anon` nunca teve
+permissão própria nessas funções: ele herda de `PUBLIC`, o papel que todo mundo
+integra. No ACL a diferença aparece assim:
+
+```
+perfil_bandeira  {=X/postgres, postgres=X, authenticated=X, service_role=X}
+                  ^^ grantee vazio = PUBLIC — é daqui que anon herda
+is_direx         {postgres=X, authenticated=X, service_role=X}
+                  (sem a entrada: por isso já estava fechada)
+```
+
+As funções que já estavam protegidas — `is_direx`, `excluir_cadastro`,
+`current_cycle_id` — são justamente as que tiveram `PUBLIC` revogado quando
+foram criadas. As 30 nunca tiveram. A correção que fecha de verdade é
+`revoke ... from public` (`20260903000005`).
+
+Verificado depois de aplicar: `anon` recebe `insufficient_privilege` nas quatro
+funções que vazavam, `check_roster_email` continua respondendo, e um usuário
+logado segue lendo BevCoins, bandeira, talento, EPEAS e as tabelas sob RLS que
+dependem dessas funções. O cadastro de novo membro também foi testado ponta a
+ponta (insert em `auth.users` → `people` + `occupations` + roster marcado) e
+funciona.
 
 ### 1.2 Policies de storage valem o bucket inteiro
 
@@ -136,7 +161,7 @@ dar.
 `announcements (autor_id)`, `entregas_avulsas (autor_id)` e `pdi_plans (avaliador_id)`
 — três impedimentos que a lista antiga não via.
 
-**Corrigido** em `20260903000003_resumo_exclusao_completo.sql`. Em vez de estender a
+**Corrigido e aplicado** (`20260903000003`). Em vez de estender a
 lista fixa — que é a mesma armadilha do `ON UPDATE CASCADE` — a função agora lê
 `pg_constraint` e conta as linhas de cada FK bloqueante. **FK nova entra sozinha.**
 
@@ -165,27 +190,34 @@ contido no EPEAS. Me diga qual dos dois e eu aplico.
 
 ## 3. Achados médios
 
-### 3.1 `excluir_cadastro` apaga a linha do roster — decisão sua
+### 3.1 `excluir_cadastro` travava o recadastro — corrigido
 
 ```sql
 -- o roster libera o e-mail para um novo cadastro no futuro
 delete from public.approved_roster where lower(email) = lower(v_email);
 ```
 
-O comentário diz o contrário do que o código faz. `handle_new_user` **recusa** e-mail
-que não está no roster (`BEV_OS_EMAIL_NAO_APROVADO`), então apagar a linha não libera
-o recadastro — **impede para sempre**. Para fazer o que o comentário promete, seria
-`update approved_roster set claimed = false, claimed_at = null`.
+O comentário dizia o contrário do que o código fazia. `handle_new_user` **recusa**
+e-mail que não está no roster (`BEV_OS_EMAIL_NAO_APROVADO`), então apagar a linha
+não liberava o recadastro — **impedia para sempre**.
 
-Não mudei porque as duas leituras são defensáveis (excluir de vez × liberar para
-voltar) e a escolha é de produto. A tela ainda diz "Para tirá-la do ciclo, remova a
-pessoa do roster em Admin P&C", o que sugere que exclusão era para outro caso.
+**Corrigido e aplicado**: agora marca `claimed = false` em vez de apagar. É o que o
+comentário sempre prometeu, e destrói menos — a pessoa continua no roster do ciclo
+e pode voltar. Testado ponta a ponta em transação revertida: conta e cadastro somem,
+linha do roster fica, `claimed` volta para falso.
 
-### 3.2 Exclusão de conta sem trilha
+Se a intenção era o oposto — que excluir signifique sumir do roster também — é uma
+linha para reverter, e eu reverto.
 
-`excluir_cadastro` apaga de `people` e de `auth.users` e não registra nada. Depois do
-fato não há como saber quem excluiu quem, nem quando. É a operação mais destrutiva do
-sistema. Uma tabela `deletion_log` escrita dentro da própria função resolve.
+### 3.2 Exclusão de conta sem trilha — corrigido
+
+`excluir_cadastro` apagava de `people` e de `auth.users` sem registrar nada: depois
+do fato não havia como saber quem excluiu quem, nem quando.
+
+**Corrigido e aplicado**: tabela `deletion_log` (quem, quem, quando, e o resumo que
+foi mostrado na hora), gravada dentro da própria função. Sem FK para `people`, senão
+o registro morreria junto com a pessoa. Só a Diretoria lê; ninguém edita nem apaga
+pela API, porque não existe policy de escrita — só a função grava.
 
 ### 3.3 `avisos` continua público
 
@@ -207,15 +239,21 @@ Um meio-termo: devolver só `status` para `anon` e manter o prefill preenchido d
 do `signUp`. Custa uma ida a mais no cadastro e fecha a enumeração. Não mudei porque
 mexe no fluxo de cadastro.
 
-### 3.5 `epeas_contract_exceptions`: quem só vê, edita
+### 3.5 `epeas_contract_exceptions`: quem só via, editava — corrigido
 
-```sql
-epeas_excecoes_update  using (epeas_pode_ver(...))  with check (epeas_pode_ver(...))
-```
+O UPDATE usava `epeas_pode_ver` enquanto o resto do EPEAS usa `epeas_pode_editar`, e
+o `with_check` não fixava `aberto_por_id` — dava para reescrever a exceção e a
+autoria dela.
 
-Devia ser `epeas_pode_editar`, como nas outras tabelas do EPEAS. E o `with check` não
-fixa `aberto_por_id` — quem vê pode reescrever a exceção e a autoria dela. As demais
-tabelas acertam isso (`epeas_comments` fixa `autor_id`).
+**Corrigido e aplicado**, com um tropeço no caminho que vale registrar: a primeira
+tentativa de fixar `aberto_por_id` foi por `with_check` com subconsulta, e estava
+errada — dentro dela, `id` resolve para a coluna da própria tabela, então `e.id = id`
+era sempre verdadeiro e não fixava nada. RLS não compara linha velha com linha nova:
+`USING` vê a antiga, `WITH CHECK` vê a nova, e as duas não se encontram. Para travar
+coluna o instrumento é trigger (`20260903000007`).
+
+Testado: trocar autoria e mover de contrato bloqueados; editar a descrição continua
+funcionando.
 
 ### 3.6 Buckets sem limite de tamanho nem de tipo
 
@@ -223,13 +261,19 @@ Nenhum dos 5 tinha `file_size_limit` ou `allowed_mime_types`. Somado ao bucket
 público, era hospedagem de arquivo arbitrário na origem do Supabase. Corrigido para
 `financeiro` e `epeas` (10 MB, imagem e PDF) na `20260903000002`.
 
-### 3.7 Nome de exibição vem do cliente
+### 3.7 Nome de exibição vem do cliente — **não é falha, retirado**
 
-`handle_new_user` usa `coalesce(new.raw_user_meta_data->>'nome', roster_row.nome)`.
-`raw_user_meta_data` é preenchido pelo cliente no `signUp`. Quem está no roster pode
-se cadastrar com o nome de exibição que quiser — inclusive o de outra pessoa. O
-vínculo com o roster é pelo e-mail, então não há escalada de permissão; é
-impersonação visual. Usar sempre `roster_row.nome` fecha.
+`handle_new_user` usa `coalesce(new.raw_user_meta_data->>'nome', roster_row.nome)`, e
+`raw_user_meta_data` vem do cliente. Eu ia recomendar forçar o nome do roster.
+
+**Fui conferir a tela antes e estava errado:** `/cadastro` pergunta "Como você quer
+ser chamado?", com o primeiro nome preenchido e editável. É funcionalidade
+deliberada, não descuido. Forçar o nome do roster quebraria a tela para as 12 pessoas
+que ainda vão se cadastrar.
+
+O vínculo com o roster é pelo e-mail, então não há escalada de permissão — no máximo
+alguém escolhe um nome de exibição parecido com o de outra pessoa, numa EJ de 45
+pessoas que se conhecem. Não mexi.
 
 ---
 
@@ -253,9 +297,9 @@ B (mover p/ contrato que ela vê)      = PERMITIDO
 C (mover p/ contrato que ela não vê)  = BLOQUEADO
 ```
 
-Ainda assim, `epeas_comments_update` **devia** repetir `epeas_pode_ver(contrato_id)`
-no `with check`, como o insert faz. Hoje a proteção é efeito do motor, não do texto da
-policy — funciona, mas não está escrita.
+Ainda assim, a proteção era efeito do motor, não do texto da policy — funcionava, mas
+não estava escrita. **Corrigido e aplicado**: `epeas_comments_update` agora repete
+`epeas_pode_ver(contrato_id)` no `with check`, como o insert sempre fez.
 
 **Forjar `mencoes` — possível e inerte.** `mencoes uuid[]` não é validado: dá para
 citar qualquer uuid. Mas a caixa de pendências (`epeas.ts:560`) lê `epeas_comments`
@@ -307,42 +351,52 @@ desta branch trazem o DDL completo.
 
 ## 6. O que está nesta branch
 
-**Migrations** (nenhuma aplicada em produção — ver §7):
+**Já aplicado em produção e verificado:**
 
-- `20260903000001_revoga_anon_security_definer.sql` — fecha as 30 RPCs para `anon`
-- `20260903000002_storage_privado_e_rls.sql` — buckets privados, policies por permissão, limites
-- `20260903000003_resumo_exclusao_completo.sql` — impedimentos lidos de `pg_constraint`
-- `20260903000004_comprovante_path.sql` — `comprovante_url` → `comprovante_path`
+| Migration | O que faz |
+|---|---|
+| `…0001` + `…0005` | fecha as 30 funções que respondiam sem login (a 0001 sozinha não bastava — §1.1) |
+| `…0003` | impedimentos da exclusão lidos de `pg_constraint` |
+| `…0006` | policies do EPEAS, `deletion_log`, exclusão devolve o e-mail ao roster |
+| `…0007` | corrige o pin de autoria da 0006, que estava errado |
 
-**Código:**
+**Pronto, esperando o deploy:**
 
-- `src/lib/epeas.ts` — `urlAnexo` assina por 60s
-- `src/lib/financeiro.ts` — `uploadComprovante` devolve caminho; `urlComprovante` assina; CSV deixa de exportar o caminho do objeto
-- `src/components/features/epeas/conversa.tsx` e `src/routes/_app/financeiro.tsx` — âncora vira botão que assina no clique (aba aberta antes do `await`, senão o navegador bloqueia como popup)
+| Migration / arquivo | O que faz |
+|---|---|
+| `…0002` | buckets `financeiro` e `epeas` privados, policies por permissão, teto de 10 MB |
+| `…0004` | `comprovante_url` → `comprovante_path` |
+| `src/lib/epeas.ts`, `src/lib/financeiro.ts` | URL assinada de 60s em vez de link público |
+| `conversa.tsx`, `financeiro.tsx` | anexo vira botão que assina no clique |
 
-`npm run typecheck` e `npm run build` passam. A renomeação da coluna foi de propósito:
-com `comprovante_url` guardando um caminho, um `href` esquecido quebraria calado; com
-o nome novo, o TypeScript aponta.
+`npm run typecheck` e `npm run build` passam. A coluna foi renomeada de propósito:
+com `comprovante_url` guardando um caminho, um `href` esquecido quebraria calado;
+com o nome novo, o TypeScript aponta.
 
 ---
 
-## 7. Como aplicar — importante
+## 7. O que falta — e o que preciso de você
 
-**Não apliquei nada em produção.** As migrations de storage e o código **têm que subir
-juntos**: no instante em que os buckets viram privados, todo `getPublicUrl` que ainda
-estiver no ar devolve link quebrado. Ordem:
+**Uma coisa só:** dar merge nesta branch, para a Vercel publicar o código novo.
+Assim que o deploy terminar, eu aplico as duas migrations que faltam (`…0002` e
+`…0004`) e testo subindo um comprovante e um anexo.
 
-1. Revisar esta branch.
-2. Aplicar `20260903000001` (isolada, sem efeito no app logado — pode ir na frente).
-3. Fazer o merge e esperar o deploy da Vercel concluir.
-4. Aplicar `…02`, `…03` e `…04` logo depois.
-5. Conferir: subir um comprovante de reembolso e um anexo de EPEAS, e abrir os dois.
+A ordem importa porque as duas partes têm que virar juntas: no instante em que os
+buckets viram privados, todo link público que ainda estiver no ar para de funcionar;
+e a renomeação da coluna quebra a tela do Financeiro enquanto o código antigo
+estiver publicado. Como os dois buckets estão com **zero arquivos**, não há pressa
+nem risco em esperar — não existe nada exposto lá hoje.
 
-Se preferir, aplico as migrations por MCP — é só dizer. Não fiz por conta porque
-fechar bucket e renomear coluna em produção não dá para desfazer com um clique, e o
-passo 3 depende do deploy, que está fora do meu alcance.
+**Duas decisões que são suas, não minhas:**
 
-**Fora do banco**, dois itens do handoff que continuam de pé e não passam por código:
+- **§2.3 — Gestão vê e edita todos os 31 contratos, inclusive as assessoras.** Pode
+  ser exatamente o certo (Gestão *é* o time do contrato). O que me chamou atenção é
+  a assimetria: em Projetos, só liderança. Se quiser espelhar, é uma linha.
+- **§3.4 — `check_roster_email` devolve nome, cargo, área e diretoria sem login.**
+  Fechar custa o preenchimento automático do `/cadastro`. Dá para devolver só o
+  "existe/não existe" e preencher o resto depois que a pessoa entra.
 
-- **`auth_leaked_password_protection` está desativado** — Authentication → Policies. Confirmado pelo advisor.
+**Fora do banco, dois itens do handoff que continuam de pé:**
+
+- **`auth_leaked_password_protection` desativado** — Authentication → Policies. Um clique.
 - **SMTP e Redirect URLs** — confirmar `https://bev-os.vercel.app/nova-senha` nas Redirect URLs, e trocar o SMTP padrão do Supabase pelo Google Workspace de `bevilaqua.org.br`.
