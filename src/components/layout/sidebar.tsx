@@ -28,6 +28,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { useApp } from '@/lib/app-context'
 import { cn } from '@/lib/utils'
+import { Marca } from '@/components/layout/marca'
 
 interface ModuleItem {
   label: string
@@ -196,6 +197,9 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         )}
         <Separator className="mb-1" />
+        <Marca peca="completa" className="mb-1.5 h-5 w-auto opacity-70">
+          <></>
+        </Marca>
         <p className="text-sidebar-foreground/60 text-[11px] leading-relaxed">
           BEV OS
           <br />

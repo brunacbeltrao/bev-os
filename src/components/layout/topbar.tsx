@@ -23,6 +23,7 @@ import { useApp } from '@/lib/app-context'
 import { occupationAreaLabel, ROLE_LABELS } from '@/lib/org'
 import { initials } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { Marca } from '@/components/layout/marca'
 
 export function Topbar() {
   const { person, primary, cycle, bevCoinsBalance } = useApp()
@@ -55,9 +56,11 @@ export function Topbar() {
         to="/"
         className="focus-visible:ring-ring/60 flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2"
       >
-        <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-xs font-bold">
-          B
-        </span>
+        <Marca peca="simbolo" className="h-6 w-auto">
+          <span className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md text-xs font-bold">
+            B
+          </span>
+        </Marca>
         <span className="text-sm font-semibold tracking-tight">BEV OS</span>
       </Link>
 
