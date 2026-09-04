@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, Check, Plus, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CalendarClock, Check, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ import { supabase } from '@/lib/supabase'
 import { fmtBRLCurto, fmtData, LinkExterno, Vazio } from '@/components/features/epeas/epeas-shared'
 import { Conversa } from '@/components/features/epeas/conversa'
 import { ChecklistEtapa } from '@/components/features/epeas/checklist-etapa'
+import { Documentos } from '@/components/features/epeas/documentos'
 
 export const Route = createFileRoute('/_app/epeas/contrato/$contratoId')({
   component: ContratoEpeasPage,
@@ -73,6 +74,14 @@ function ContratoEpeasPage() {
       invalidar()
     },
   })
+  const mutResponsavel = useMutation({
+    mutationFn: (pessoaId: string | null) => E.definirResponsavelComercial(contratoId, pessoaId),
+    onSuccess: () => {
+      toast.success('Responsável comercial atualizado.')
+      invalidar()
+    },
+    onError: () => toast.error('Só a diretoria de Negócios pode alterar isto.'),
+  })
   const mutExcecao = useMutation({
     mutationFn: (descricao: string) => E.abrirExcecao(contratoId, descricao, person.id),
     onSuccess: () => {
@@ -107,6 +116,7 @@ function ContratoEpeasPage() {
   const abertas = (excQ.data ?? []).filter((e) => e.status === 'aberto')
   const pessoas = pessoasQ.data ?? []
   const alerta = E.alertaPagamento(c)
+  const prazo = E.statusPrazo(c)
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 md:p-8">
@@ -161,6 +171,37 @@ function ContratoEpeasPage() {
         </Card>
       )}
 
+      {prazo && !prazo.entregue && prazo.nivel !== 'ok' && (
+        <Card
+          className={
+            prazo.nivel === 'estourado'
+              ? 'border-status-danger/40 bg-status-danger-bg/30'
+              : 'border-status-warning/40 bg-status-warning-bg/30'
+          }
+        >
+          <CardContent className="flex items-center gap-2 p-4 text-sm">
+            <CalendarClock
+              className={prazo.nivel === 'estourado' ? 'text-status-danger size-4' : 'text-status-warning size-4'}
+              aria-hidden="true"
+            />
+            <span
+              className={
+                prazo.nivel === 'estourado'
+                  ? 'text-status-danger font-semibold'
+                  : 'text-status-warning font-semibold'
+              }
+            >
+              {prazo.nivel === 'estourado' ? 'Prazo estourado' : 'Prazo perto'}
+            </span>
+            <span className="text-muted-foreground">
+              {prazo.nivel === 'estourado'
+                ? `combinado para ${fmtData(c.prazo_entrega!)}, há ${Math.abs(prazo.dias)} ${Math.abs(prazo.dias) === 1 ? 'dia' : 'dias'}`
+                : `faltam ${prazo.dias} ${prazo.dias === 1 ? 'dia' : 'dias'} para ${fmtData(c.prazo_entrega!)}`}
+            </span>
+          </CardContent>
+        </Card>
+      )}
+
       <ChecklistEtapa
         contrato={c}
         avancando={mutPatch.isPending}
@@ -183,24 +224,98 @@ function ContratoEpeasPage() {
               Fluxo de Registro de Marca. Outros serviços entram na Onda B.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {E.ETAPAS_EXECUCAO.map((etapa) => {
-              const atual = c.etapa_execucao === etapa
-              return (
-                <Button
-                  key={etapa}
-                  size="sm"
-                  variant={atual ? 'default' : 'outline'}
-                  disabled={mutPatch.isPending}
-                  onClick={() => mutPatch.mutate({ etapa_execucao: etapa })}
-                >
-                  {E.ETAPA_EXECUCAO_LABELS[etapa]}
-                </Button>
-              )
-            })}
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap gap-2">
+              {E.ETAPAS_EXECUCAO.map((etapa) => {
+                const atual = c.etapa_execucao === etapa
+                return (
+                  <Button
+                    key={etapa}
+                    size="sm"
+                    variant={atual ? 'default' : 'outline'}
+                    disabled={mutPatch.isPending}
+                    onClick={() => mutPatch.mutate({ etapa_execucao: etapa })}
+                  >
+                    {E.ETAPA_EXECUCAO_LABELS[etapa]}
+                  </Button>
+                )
+              })}
+            </div>
+
+            {/* Dados do processo: é por eles que se acompanha na RPI. */}
+            <div className="grid gap-3 border-t pt-4 sm:grid-cols-3">
+              <CampoTexto
+                label="Processo no INPI"
+                valor={c.inpi_processo}
+                placeholder="Ex.: 934567890"
+                onSalvar={(v) => mutPatch.mutate({ inpi_processo: v })}
+              />
+              <CampoTexto
+                label="Classe de Nice"
+                valor={c.inpi_classe}
+                placeholder="Ex.: 45"
+                onSalvar={(v) => mutPatch.mutate({ inpi_classe: v })}
+              />
+              <Campo label="Data do protocolo">
+                <input
+                  type="date"
+                  className="border-input bg-card h-9 rounded-md border px-3 text-sm shadow-xs"
+                  value={c.inpi_data_protocolo ?? ''}
+                  onChange={(e) => mutPatch.mutate({ inpi_data_protocolo: e.target.value || null })}
+                />
+              </Campo>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* -------- cliente e prazo -------- */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Cliente e prazo</CardTitle>
+          <CardDescription>
+            Com quem falar do lado do cliente, e a data que foi prometida a ele.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2">
+          <Campo label="Prazo prometido ao cliente">
+            <input
+              type="date"
+              className="border-input bg-card h-9 rounded-md border px-3 text-sm shadow-xs"
+              value={c.prazo_entrega ?? ''}
+              onChange={(e) => mutPatch.mutate({ prazo_entrega: e.target.value || null })}
+            />
+          </Campo>
+          <Campo label="Quem fechou o contrato">
+            <Sel
+              value={c.contrato.responsavel_id ?? ''}
+              onChange={(v) => mutResponsavel.mutate(v || null)}
+              opcoes={pessoas.map((p) => ({ id: p.person.id, nome: p.person.nome }))}
+            />
+          </Campo>
+          <CampoTexto
+            label="Contato no cliente"
+            valor={c.cliente_contato_nome}
+            placeholder="Nome de quem responde"
+            onSalvar={(v) => mutPatch.mutate({ cliente_contato_nome: v })}
+          />
+          <CampoTexto
+            label="E-mail do contato"
+            valor={c.cliente_contato_email}
+            placeholder="cliente@empresa.com"
+            tipo="email"
+            onSalvar={(v) => mutPatch.mutate({ cliente_contato_email: v })}
+          />
+          <CampoTexto
+            label="Telefone do contato"
+            valor={c.cliente_contato_telefone}
+            placeholder="(81) 90000-0000"
+            onSalvar={(v) => mutPatch.mutate({ cliente_contato_telefone: v })}
+          />
+        </CardContent>
+      </Card>
+
+      <Documentos contratoId={contratoId} />
 
       {/* -------- alocação -------- */}
       <Card>
@@ -390,6 +505,45 @@ function Campo({ label, children }: { label: string; children: React.ReactNode }
       <Label>{label}</Label>
       {children}
     </div>
+  )
+}
+
+/**
+ * Campo de texto que salva ao sair.
+ *
+ * Sem botão de salvar de propósito: são campos que a pessoa preenche de
+ * passagem, e um botão por campo transformaria o cartão numa lista de
+ * botões. Só grava quando o valor mudou, para não disparar update a cada
+ * clique fora.
+ */
+function CampoTexto({
+  label,
+  valor,
+  placeholder,
+  tipo = 'text',
+  onSalvar,
+}: {
+  label: string
+  valor: string | null
+  placeholder?: string
+  tipo?: 'text' | 'email'
+  onSalvar: (v: string | null) => void
+}) {
+  const [txt, setTxt] = useState(valor ?? '')
+
+  return (
+    <Campo label={label}>
+      <Input
+        type={tipo}
+        value={txt}
+        placeholder={placeholder}
+        onChange={(e) => setTxt(e.target.value)}
+        onBlur={() => {
+          const novo = txt.trim() || null
+          if (novo !== (valor ?? null)) onSalvar(novo)
+        }}
+      />
+    </Campo>
   )
 }
 

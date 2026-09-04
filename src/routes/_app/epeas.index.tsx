@@ -91,11 +91,14 @@ function EpeasPage() {
               c.gerente_nucleo_id === person.id ||
               c.scrum_master_id === person.id ||
               c.assessores_projeto_ids.includes(person.id)))
-        return minhaFase || mencionado.has(c.contrato_id) || c.excecoes_abertas > 0
+        const prazoEstourado = E.statusPrazo(c)?.nivel === 'estourado'
+        return minhaFase || mencionado.has(c.contrato_id) || c.excecoes_abertas > 0 || prazoEstourado
       })
       .sort((a, b) => {
-        // exceção primeiro, depois atraso, depois menção
+        // prazo do cliente estourado vem antes de tudo: é o único destes
+        // que o cliente enxerga. Depois exceção, atraso de etapa e menção.
         const peso = (c: E.EpeasContrato) =>
+          (E.statusPrazo(c)?.nivel === 'estourado' ? 200 : 0) +
           (c.excecoes_abertas > 0 ? 100 : 0) +
           (E.statusEtapa(c).saude === 'atrasado' ? 50 : 0) +
           (mencionado.has(c.contrato_id) ? 25 : 0) +
@@ -343,6 +346,21 @@ function Pipeline({
                     >
                       há {s.dias}d {s.saude === 'atrasado' && `· prazo ${s.sla}d`}
                     </p>
+                    {(() => {
+                      const pz = E.statusPrazo(c)
+                      if (!pz || pz.entregue || pz.nivel === 'ok') return null
+                      return (
+                        <p
+                          className={`mt-0.5 text-xs font-medium ${
+                            pz.nivel === 'estourado' ? 'text-status-danger' : 'text-status-warning'
+                          }`}
+                        >
+                          {pz.nivel === 'estourado'
+                            ? `cliente esperava há ${Math.abs(pz.dias)}d`
+                            : `entrega ao cliente em ${pz.dias}d`}
+                        </p>
+                      )
+                    })()}
                   </Link>
                 )
               })

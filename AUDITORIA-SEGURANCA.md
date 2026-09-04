@@ -17,7 +17,7 @@ produção foi alterado por esta auditoria — conferido ao final de cada teste.
 | 2 | Policies de storage não recortam por permissão | **Crítico** | pronto, **falta deploy** |
 | 3 | 5 buckets com `public = true` | **Alto** | `financeiro`/`epeas` prontos, **falta deploy**; `avisos` pendente (§3.3) |
 | 4 | `resumo_exclusao_cadastro` checava 7 de 28 impedimentos | **Alto** | **corrigido e aplicado** |
-| 5 | `is_gestao` sem filtro de cargo | **Alto** | **decisão sua** (§2.3) |
+| 5 | `is_gestao` sem filtro de cargo | **Alto** | **resolvido e aplicado** — permissão por fase (§2.3) |
 | 6 | `excluir_cadastro` travava o recadastro | **Médio** | **corrigido e aplicado** |
 | 7 | Exclusão de conta sem trilha | **Médio** | **corrigido e aplicado** |
 | 8 | `epeas_contract_exceptions` editável por quem só vê | **Médio** | **corrigido e aplicado** |
@@ -180,11 +180,26 @@ alocada. Verificado.
 Isso responde a pergunta do handoff ("um assessor consegue ver contrato de outro
 núcleo?"): **em Projetos, não. Em Gestão, sim — todos.**
 
-**Não mudei**, e é de propósito. Gestão *é* o time do contrato: pode ser exatamente o
-desenhado. A assimetria com Projetos é que não parece deliberada. Se a intenção era
-espelhar Projetos, o ajuste é acrescentar `and o.role in ('diretor','gerente','coordenador')`
-a `is_gestao` — só `epeas_pode_ver`/`epeas_pode_editar` a chamam, então o efeito é
-contido no EPEAS. Me diga qual dos dois e eu aplico.
+**Resolvido em 04/09**, e a decisão foi nivelar por cima em vez de por baixo: em vez
+de restringir Gestão à liderança, as três diretorias passaram a valer igual, mas
+**amarradas à fase do contrato**.
+
+O contrato está numa etapa; a etapa pertence a uma diretoria (`comercial_*` →
+Negócios, `gestao_*` → Gestão, `projetos_*` → Projetos); quem é daquela diretoria
+edita, em qualquer cargo. Quando a bola passa, a caneta passa junto. Ver continua
+aberto às três — quem não pode editar ainda precisa acompanhar.
+
+É mais permissivo que antes para Negócios e Projetos, e mais restrito para Gestão,
+que deixa de editar contrato em fase que não é dela. Verificado contando linhas
+afetadas (um `UPDATE` que o RLS filtra não levanta erro, apenas afeta zero linhas —
+o teste que checa exceção dá falso positivo aqui):
+
+| | etapa comercial | etapa projetos |
+|---|---|---|
+| assessora de Negócios | 1 linha | 0 linhas |
+| assessora de Projetos | 0 linhas | 1 linha |
+
+Migration `20260904000001`.
 
 ---
 

@@ -126,6 +126,13 @@ export interface EpeasContrato {
   link_autentique: string | null
   link_grupo_whatsapp: string | null
   data_alocacao: string | null
+  prazo_entrega: string | null
+  cliente_contato_nome: string | null
+  cliente_contato_email: string | null
+  cliente_contato_telefone: string | null
+  inpi_processo: string | null
+  inpi_classe: string | null
+  inpi_data_protocolo: string | null
   created_at: string
   etapa_macro_em: string
   etapa_execucao_em: string | null
@@ -150,6 +157,8 @@ const SELECT = `
   assessores_projeto_ids, scrum_master_id, etapa_macro, etapa_execucao,
   link_formulario_notion, link_autentique, link_grupo_whatsapp,
   data_alocacao, created_at, etapa_macro_em, etapa_execucao_em,
+  prazo_entrega, cliente_contato_nome, cliente_contato_email,
+  cliente_contato_telefone, inpi_processo, inpi_classe, inpi_data_protocolo,
   contrato:contratos!inner(
     id, cliente, valor, data_fechamento, responsavel_id,
     servico:project_services(id, nome),
@@ -220,6 +229,13 @@ export type EpeasPatch = Partial<{
   link_autentique: string | null
   link_grupo_whatsapp: string | null
   data_alocacao: string | null
+  prazo_entrega: string | null
+  cliente_contato_nome: string | null
+  cliente_contato_email: string | null
+  cliente_contato_telefone: string | null
+  inpi_processo: string | null
+  inpi_classe: string | null
+  inpi_data_protocolo: string | null
 }>
 
 export async function atualizarEpeas(contratoId: string, patch: EpeasPatch) {
@@ -237,6 +253,133 @@ export async function avancarEtapa(contratoId: string, atual: EtapaMacro) {
   // ao entrar em execução, começa pelo primeiro passo do fluxo do serviço
   if (proxima === 'projetos_em_execucao') patch.etapa_execucao = 'gru_emitir'
   await atualizarEpeas(contratoId, patch)
+}
+
+/**
+ * Quem fechou o contrato, do lado comercial.
+ *
+ * Mora em `contratos`, não aqui: é a mesma coluna que alimenta o
+ * faturamento e os dashboards. Editar pelo EPEAS evita a ida ao Comercial
+ * só para corrigir um nome.
+ */
+export async function definirResponsavelComercial(contratoId: string, pessoaId: string | null) {
+  const { error } = await supabase
+    .from('contratos')
+    .update({ responsavel_id: pessoaId })
+    .eq('id', contratoId)
+  if (error) throw error
+}
+
+// ---------------------------------------------------------------------------
+// Documentos
+// ---------------------------------------------------------------------------
+
+export type DocumentoTipo =
+  | 'contrato_assinado'
+  | 'procuracao'
+  | 'comprovante_pagamento'
+  | 'gru'
+  | 'documento_cliente'
+  | 'entregavel'
+  | 'outro'
+
+export const DOCUMENTO_TIPOS: DocumentoTipo[] = [
+  'contrato_assinado',
+  'procuracao',
+  'comprovante_pagamento',
+  'gru',
+  'documento_cliente',
+  'entregavel',
+  'outro',
+]
+
+export const DOCUMENTO_LABELS: Record<DocumentoTipo, string> = {
+  contrato_assinado: 'Contrato assinado',
+  procuracao: 'Procuração',
+  comprovante_pagamento: 'Comprovante de pagamento',
+  gru: 'GRU',
+  documento_cliente: 'Documento do cliente',
+  entregavel: 'Entregável',
+  outro: 'Outro',
+}
+
+export interface Documento {
+  id: string
+  contrato_id: string
+  tipo: DocumentoTipo
+  nome: string
+  path: string
+  created_at: string
+  enviado_por: { id: string; nome: string } | null
+}
+
+export async function getDocumentos(contratoId: string): Promise<Documento[]> {
+  const { data, error } = await supabase
+    .from('epeas_documentos')
+    .select('id, contrato_id, tipo, nome, path, created_at, enviado_por:people!epeas_documentos_enviado_por_fkey(id, nome)')
+    .eq('contrato_id', contratoId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as unknown as Documento[]
+}
+
+export async function enviarDocumento(
+  contratoId: string,
+  arquivo: File,
+  tipo: DocumentoTipo,
+  pessoaId: string,
+) {
+  const path = `${contratoId}/${Date.now()}-${arquivo.name.replace(/[^\w.\-]/g, '_')}`
+  const { error: upErr } = await supabase.storage.from('epeas').upload(path, arquivo)
+  if (upErr) throw upErr
+
+  const { error } = await supabase.from('epeas_documentos').insert({
+    contrato_id: contratoId,
+    tipo,
+    nome: arquivo.name,
+    path,
+    enviado_por: pessoaId,
+  })
+  if (error) throw error
+}
+
+export async function removerDocumento(id: string, path: string) {
+  const { error } = await supabase.from('epeas_documentos').delete().eq('id', id)
+  if (error) throw error
+  // o objeto só sai depois da linha: se o delete do banco falhar, o
+  // arquivo continua alcançável em vez de virar referência quebrada
+  await supabase.storage.from('epeas').remove([path])
+}
+
+/** URL temporária (60s) de um documento do bucket privado. */
+export async function urlDocumento(path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from('epeas').createSignedUrl(path, 60)
+  if (error) throw error
+  return data.signedUrl
+}
+
+// ---------------------------------------------------------------------------
+// Prazo prometido ao cliente
+// ---------------------------------------------------------------------------
+
+/**
+ * Situação do prazo combinado com o cliente.
+ *
+ * Diferente do SLA por etapa: o SLA cobra o processo interno, este cobra a
+ * promessa comercial. Um contrato pode estar em dia em toda etapa e ainda
+ * assim estourar o prazo prometido — é esse o caso que dói.
+ */
+export function statusPrazo(
+  c: EpeasContrato,
+): { dias: number; nivel: 'ok' | 'perto' | 'estourado'; entregue: boolean } | null {
+  if (!c.prazo_entrega) return null
+  const entregue = c.etapa_macro === 'projetos_entregue'
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const prazo = new Date(c.prazo_entrega + 'T00:00:00')
+  const dias = Math.round((prazo.getTime() - hoje.getTime()) / 86_400_000)
+  const nivel = entregue ? 'ok' : dias < 0 ? 'estourado' : dias <= 3 ? 'perto' : 'ok'
+  return { dias, nivel, entregue }
 }
 
 // ---------------------------------------------------------------------------
