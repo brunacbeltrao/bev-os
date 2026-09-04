@@ -13,17 +13,26 @@ produção foi alterado por esta auditoria — conferido ao final de cada teste.
 
 | # | Achado | Sev. | Estado |
 |---|---|---|---|
-| 1 | 30 funções `SECURITY DEFINER` respondiam sem login | **Crítico** | **corrigido e aplicado** |
-| 2 | Policies de storage não recortam por permissão | **Crítico** | pronto, **falta deploy** |
-| 3 | 5 buckets com `public = true` | **Alto** | `financeiro`/`epeas` prontos, **falta deploy**; `avisos` pendente (§3.3) |
-| 4 | `resumo_exclusao_cadastro` checava 7 de 28 impedimentos | **Alto** | **corrigido e aplicado** |
-| 5 | `is_gestao` sem filtro de cargo | **Alto** | **resolvido e aplicado** — permissão por fase (§2.3) |
-| 6 | `excluir_cadastro` travava o recadastro | **Médio** | **corrigido e aplicado** |
-| 7 | Exclusão de conta sem trilha | **Médio** | **corrigido e aplicado** |
-| 8 | `epeas_contract_exceptions` editável por quem só vê | **Médio** | **corrigido e aplicado** |
+| 1 | 30 funções `SECURITY DEFINER` respondiam sem login | **Crítico** | **corrigido e no ar** |
+| 2 | Policies de storage não recortam por permissão | **Crítico** | **corrigido e no ar** |
+| 3 | Buckets `financeiro` e `epeas` públicos | **Alto** | **fechados e no ar**; `avisos` segue público (§3.3) |
+| 4 | `resumo_exclusao_cadastro` checava 7 de 28 impedimentos | **Alto** | **corrigido e no ar** |
+| 5 | `is_gestao` sem filtro de cargo | **Alto** | **resolvido** — permissão por fase (§2.3) |
+| 6 | `excluir_cadastro` travava o recadastro | **Médio** | **corrigido e no ar** |
+| 7 | Exclusão de conta sem trilha | **Médio** | **corrigido e no ar** |
+| 8 | `epeas_contract_exceptions` editável por quem só vê | **Médio** | **corrigido e no ar** |
 | 9 | `check_roster_email` devolve nome, cargo, área e diretoria | **Médio** | **decisão sua** (§3.4) |
-| 10 | Buckets sem teto de tamanho nem lista de tipos | **Médio** | pronto, **falta deploy** |
+| 10 | Buckets sem teto de tamanho nem lista de tipos | **Médio** | **corrigido e no ar** |
 | 11 | Migrations sem DDL — banco é a única fonte de verdade | **Alto (processo)** | §5 |
+
+Merge feito e publicado em 04/09. Estado do banco depois de tudo aplicado:
+
+| | |
+|---|---|
+| funções que respondem sem login | **1** — só `check_roster_email`, que o cadastro precisa |
+| buckets sensíveis públicos | **0** |
+| FKs para `people` sem `ON UPDATE CASCADE` | **0** |
+| tabelas sem RLS | **0** |
 
 Tudo que está como "aplicado" foi aplicado no banco de produção e verificado
 depois, com o teste de que o vazamento fechou **e** o teste de que quem está
@@ -390,28 +399,50 @@ com o nome novo, o TypeScript aponta.
 
 ---
 
-## 7. O que falta — e o que preciso de você
+## 7. O que ficou de fora, e uma armadilha que vale lembrar
 
-**Uma coisa só:** dar merge nesta branch, para a Vercel publicar o código novo.
-Assim que o deploy terminar, eu aplico as duas migrations que faltam (`…0002` e
-`…0004`) e testo subindo um comprovante e um anexo.
+Publicado em 04/09: merge em `main`, deploy da Vercel concluído, e só então as
+migrations de storage e a renomeação da coluna — nessa ordem, porque as duas partes
+precisavam virar juntas.
 
-A ordem importa porque as duas partes têm que virar juntas: no instante em que os
-buckets viram privados, todo link público que ainda estiver no ar para de funcionar;
-e a renomeação da coluna quebra a tela do Financeiro enquanto o código antigo
-estiver publicado. Como os dois buckets estão com **zero arquivos**, não há pressa
-nem risco em esperar — não existe nada exposto lá hoje.
+**Verificado depois de aplicar**, com arquivos de teste criados e revertidos:
 
-**Duas decisões que são suas, não minhas:**
+| quem | vê dos 2 comprovantes |
+|---|---|
+| dona do primeiro | 1 |
+| dona do segundo | 1 |
+| liderança de Gestão (avalia o reembolso) | 2 |
 
-- **§2.3 — Gestão vê e edita todos os 31 contratos, inclusive as assessoras.** Pode
-  ser exatamente o certo (Gestão *é* o time do contrato). O que me chamou atenção é
-  a assimetria: em Projetos, só liderança. Se quiser espelhar, é uma linha.
-- **§3.4 — `check_roster_email` devolve nome, cargo, área e diretoria sem login.**
-  Fechar custa o preenchimento automático do `/cadastro`. Dá para devolver só o
-  "existe/não existe" e preencher o resto depois que a pessoa entra.
+E no EPEAS, o anexo só aparece para quem já enxerga o contrato.
 
-**Fora do banco, dois itens do handoff que continuam de pé:**
+### A armadilha: função nova nasce aberta
 
-- **`auth_leaked_password_protection` desativado** — Authentication → Policies. Um clique.
-- **SMTP e Redirect URLs** — confirmar `https://bev-os.vercel.app/nova-senha` nas Redirect URLs, e trocar o SMTP padrão do Supabase pelo Google Workspace de `bevilaqua.org.br`.
+Ao criar `pertence_diretoria` eu escrevi `revoke ... from public` — e ela **continuou
+respondendo sem login**. O Supabase mantém `ALTER DEFAULT PRIVILEGES` concedendo
+EXECUTE a `anon` em toda função nova do schema `public`, e esse grant é **explícito**
+(`anon=X` no ACL), não herdado de PUBLIC. Revogar de um não alcança o outro, e os dois
+falham em silêncio.
+
+Foi o mesmo erro da §1.1, cometido de novo no mesmo dia, em código meu. Só apareceu
+porque a contagem de funções abertas saiu de 1 para 2 na conferência final.
+
+**Regra daqui para frente:** toda função nova em `public` precisa de
+`revoke execute ... from anon, public;` — os dois, sempre. E a checagem que pega isso é:
+
+```sql
+select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+where n.nspname='public' and p.prosecdef
+  and has_function_privilege('anon', p.oid, 'EXECUTE');
+-- deve devolver apenas check_roster_email
+```
+
+### Continua pendente
+
+- **`avisos` segue público** (§3.3). Diferente dos outros, ele guarda a URL pública
+  gravada em `announcements.anexo_url`, então fechar exige trocar a coluna por caminho
+  antes. São 2 arquivos, anexo de comunicado interno.
+- **`check_roster_email`** (§3.4) — decisão sua: fechar custa o preenchimento
+  automático do `/cadastro`.
+- **`auth_leaked_password_protection` desativado** — Authentication → Policies.
+- **SMTP e Redirect URLs** — confirmar `https://bev-os.vercel.app/nova-senha` nas
+  Redirect URLs, e trocar o SMTP padrão do Supabase pelo Google Workspace.

@@ -30,13 +30,32 @@ update storage.buckets set public = false where id in ('financeiro', 'epeas');
 
 -- Limites que não existiam em bucket nenhum: sem teto de tamanho e sem
 -- lista de tipos, o bucket aceita qualquer coisa de qualquer tamanho.
+--
+-- As duas listas são diferentes de propósito. Comprovante de reembolso é
+-- foto ou PDF, e só. Já o bucket do EPEAS recebe também o anexo da
+-- conversa, que hoje aceita qualquer arquivo: restringir a imagem e PDF
+-- quebraria quem manda a minuta em .docx ou a planilha do cliente.
 update storage.buckets
    set file_size_limit = 10485760, -- 10 MB
        allowed_mime_types = array[
          'image/png','image/jpeg','image/webp','image/heic',
          'application/pdf'
        ]
- where id in ('financeiro', 'epeas');
+ where id = 'financeiro';
+
+update storage.buckets
+   set file_size_limit = 10485760, -- 10 MB
+       allowed_mime_types = array[
+         'image/png','image/jpeg','image/webp','image/heic',
+         'application/pdf','text/plain','text/csv',
+         'application/msword',
+         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+         'application/vnd.ms-excel',
+         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+         'application/vnd.ms-powerpoint',
+         'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+       ]
+ where id = 'epeas';
 
 -- ------------------------------------------------------------------
 -- Helper: primeira pasta do path como uuid, ou null se não for uuid.
