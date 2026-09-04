@@ -1,24 +1,35 @@
-# Arquivos da marca Bevilaqua
+# Marca Bevilaqua
 
-O componente `src/components/layout/marca.tsx` procura os quatro arquivos
-abaixo. Enquanto não existirem, cada tela volta a mostrar o texto que
-mostrava antes — nada quebra, a marca só não aparece.
+Usada por `src/components/layout/marca.tsx` na topbar, no painel do login e
+no rodapé da sidebar.
 
-| arquivo | versão | onde é usado |
+| arquivo | versão | fundo |
 |---|---|---|
-| `bevilaqua-simbolo.svg` | símbolo, **preto + verde** | topbar no tema claro |
-| `bevilaqua-simbolo-claro.svg` | símbolo, **branco + verde** | topbar no tema escuro |
-| `bevilaqua-completo.svg` | símbolo + palavra, **preto + verde** | rodapé da sidebar (tema claro) |
-| `bevilaqua-completo-claro.svg` | símbolo + palavra, **branco + verde** | painel do login e rodapé no tema escuro |
+| `bevilaqua-simbolo.png` | símbolo, preto + verde | claro |
+| `bevilaqua-simbolo-claro.png` | símbolo, branco + verde | escuro |
+| `bevilaqua-completo.png` | símbolo + palavra, preto + verde | claro |
+| `bevilaqua-completo-claro.png` | símbolo + palavra, branco + verde | escuro |
+
+## Origem
+
+Vieram do Drive institucional, da pasta da marca:
+`logo original.png` (preto + verde) e `logo verde e branca.png` (branco +
+verde), ambos PNG com fundo transparente, 1334x611.
+
+As versões de símbolo **não existiam**. Foram obtidas por recorte do
+arquivo oficial, não por redesenho: no original há uma faixa transparente
+separando o símbolo (y 0–317) da palavra (y 335–610), então o corte é
+exato e não altera um pixel do desenho.
 
 ## Por que quatro e não um
 
 O verde (`#a9cf44`) é o mesmo nos dois fundos, mas o preto precisa virar
 branco no tema escuro. Recolorir por CSS trocaria as duas cores juntas e
-descaracterizaria a marca, então cada versão é um arquivo próprio.
+descaracterizaria a marca, então cada versão é um arquivo próprio. A troca
+é feita por classe do Tailwind, sem JavaScript.
 
-## Formato
+## Se um dia trocar a marca
 
-SVG de preferência — escala sem borrar e pesa menos. PNG com fundo
-transparente também funciona: basta trocar a extensão em `marca.tsx`.
-Sem margem em volta: o espaçamento é dado pelo layout.
+Basta substituir os quatro arquivos mantendo os nomes. Se vierem em SVG —
+que escala melhor —, troque também a extensão em `ARQUIVOS`, no topo de
+`marca.tsx`. Nenhum outro arquivo referencia estes caminhos.

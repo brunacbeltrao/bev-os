@@ -15,12 +15,12 @@ import { useState } from 'react'
 
 const ARQUIVOS = {
   simbolo: {
-    escuro: '/marca/bevilaqua-simbolo.svg', // preto + verde, para fundo claro
-    claro: '/marca/bevilaqua-simbolo-claro.svg', // branco + verde, para fundo escuro
+    escuro: '/marca/bevilaqua-simbolo.png', // preto + verde, para fundo claro
+    claro: '/marca/bevilaqua-simbolo-claro.png', // branco + verde, para fundo escuro
   },
   completa: {
-    escuro: '/marca/bevilaqua-completo.svg',
-    claro: '/marca/bevilaqua-completo-claro.svg',
+    escuro: '/marca/bevilaqua-completo.png',
+    claro: '/marca/bevilaqua-completo-claro.png',
   },
 } as const
 
