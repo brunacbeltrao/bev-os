@@ -81,7 +81,11 @@ export interface ServicoEtapa {
   servico_id: string
   ordem: number
   nome: string
+  /** Dias ÚTEIS — era dias corridos até o motor de prazos de 09/09. */
   prazo_dias: number
+  prazo_tipo: string | null
+  /** Nulo = o prazo conta da entrada na etapa. */
+  evento_gatilho: string | null
 }
 
 /** Trilha de um serviço, em ordem. Vazia = serviço sem trilha configurada. */
@@ -89,7 +93,7 @@ export async function getServicoEtapas(servicoId: string | null): Promise<Servic
   if (!servicoId) return []
   const { data, error } = await supabase
     .from('servico_etapas')
-    .select('id, servico_id, ordem, nome, prazo_dias')
+    .select('id, servico_id, ordem, nome, prazo_dias, prazo_tipo, evento_gatilho')
     .eq('servico_id', servicoId)
     .order('ordem')
   if (error) throw error
@@ -138,6 +142,11 @@ export interface EpeasContrato {
   csat_enviado_em: string | null
   termo_enviado_em: string | null
   nf_emitida_em: string | null
+  /** Motor de prazos (ver lib/prazos.ts). */
+  prazo_tipo: string | null
+  prazo_dias_uteis: number | null
+  prazo_evento_gatilho: string | null
+  prazo_condicao: string | null
   created_at: string
   etapa_macro_em: string
   etapa_servico_em: string | null
@@ -152,7 +161,14 @@ export interface EpeasContrato {
     servico: { id: string; nome: string } | null
     responsavel: { id: string; nome: string } | null
   }
-  etapa_servico: { id: string; ordem: number; nome: string; prazo_dias: number } | null
+  etapa_servico: {
+    id: string
+    ordem: number
+    nome: string
+    prazo_dias: number
+    prazo_tipo: string | null
+    evento_gatilho: string | null
+  } | null
   nucleo: { id: string; nome: string; slug: string } | null
   gestao_responsavel: { id: string; nome: string } | null
   gerente_nucleo: { id: string; nome: string } | null
@@ -168,12 +184,13 @@ const SELECT = `
   prazo_entrega, cliente_contato_nome, cliente_contato_email,
   cliente_contato_telefone, inpi_processo, inpi_classe, inpi_data_protocolo,
   csat_enviado_em, termo_enviado_em, nf_emitida_em,
+  prazo_tipo, prazo_dias_uteis, prazo_evento_gatilho, prazo_condicao,
   contrato:contratos!inner(
     id, cliente, nome_comercial, valor, data_fechamento, responsavel_id,
     servico:project_services(id, nome),
     responsavel:people!contratos_responsavel_id_fkey(id, nome)
   ),
-  etapa_servico:servico_etapas(id, ordem, nome, prazo_dias),
+  etapa_servico:servico_etapas(id, ordem, nome, prazo_dias, prazo_tipo, evento_gatilho),
   nucleo:project_nucleos(id, nome, slug),
   gestao_responsavel:people!epeas_lifecycle_gestao_responsavel_id_fkey(id, nome),
   gerente_nucleo:people!epeas_lifecycle_gerente_nucleo_id_fkey(id, nome),
@@ -249,6 +266,10 @@ export type EpeasPatch = Partial<{
   inpi_processo: string | null
   inpi_classe: string | null
   inpi_data_protocolo: string | null
+  prazo_tipo: string | null
+  prazo_dias_uteis: number | null
+  prazo_evento_gatilho: string | null
+  prazo_condicao: string | null
 }>
 
 export async function atualizarEpeas(contratoId: string, patch: EpeasPatch) {

@@ -8,7 +8,7 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, CalendarClock, Check, Plus, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +25,7 @@ import { fmtBRLCurto, fmtData, LinkExterno, Vazio } from '@/components/features/
 import { Conversa } from '@/components/features/epeas/conversa'
 import { ChecklistEtapa } from '@/components/features/epeas/checklist-etapa'
 import { Documentos } from '@/components/features/epeas/documentos'
+import { PainelPrazo } from '@/components/features/epeas/painel-prazo'
 
 export const Route = createFileRoute('/_app/epeas/contrato/$contratoId')({
   component: ContratoEpeasPage,
@@ -134,7 +135,6 @@ function ContratoEpeasPage() {
   const pessoas = pessoasQ.data ?? []
   const execucao = E.statusEtapaServico(c)
   const trilha = trilhaQ.data ?? []
-  const prazo = E.statusPrazo(c)
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 md:p-8">
@@ -183,36 +183,7 @@ function ContratoEpeasPage() {
         </Card>
       )}
 
-      {prazo && !prazo.entregue && prazo.nivel !== 'ok' && (
-        <Card
-          className={
-            prazo.nivel === 'estourado'
-              ? 'border-status-danger/40 bg-status-danger-bg/30'
-              : 'border-status-warning/40 bg-status-warning-bg/30'
-          }
-        >
-          <CardContent className="flex items-center gap-2 p-4 text-sm">
-            <CalendarClock
-              className={prazo.nivel === 'estourado' ? 'text-status-danger size-4' : 'text-status-warning size-4'}
-              aria-hidden="true"
-            />
-            <span
-              className={
-                prazo.nivel === 'estourado'
-                  ? 'text-status-danger font-semibold'
-                  : 'text-status-warning font-semibold'
-              }
-            >
-              {prazo.nivel === 'estourado' ? 'Prazo estourado' : 'Prazo perto'}
-            </span>
-            <span className="text-muted-foreground">
-              {prazo.nivel === 'estourado'
-                ? `combinado para ${fmtData(c.prazo_entrega!)}, há ${Math.abs(prazo.dias)} ${Math.abs(prazo.dias) === 1 ? 'dia' : 'dias'}`
-                : `faltam ${prazo.dias} ${prazo.dias === 1 ? 'dia' : 'dias'} para ${fmtData(c.prazo_entrega!)}`}
-            </span>
-          </CardContent>
-        </Card>
-      )}
+      <PainelPrazo contrato={c} />
 
       <ChecklistEtapa
         contrato={c}

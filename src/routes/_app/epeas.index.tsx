@@ -37,8 +37,10 @@ import { useApp } from '@/lib/app-context'
 import { getDirectory } from '@/lib/org'
 import * as C from '@/lib/contratos'
 import * as E from '@/lib/epeas'
+import * as P from '@/lib/epeas-prazos'
 import { isDirexMember } from '@/lib/permissions'
 import { ContratoCard, Vazio } from '@/components/features/epeas/epeas-shared'
+import { BaselineEmLote } from '@/components/features/epeas/baseline-em-lote'
 
 export const Route = createFileRoute('/_app/epeas/')({ component: EpeasPage })
 
@@ -62,8 +64,12 @@ function EpeasPage() {
     queryKey: ['epeas-resumo', person.id],
     queryFn: () => E.getResumoConversa(person.id),
   })
+  // Eventos, suspensões e feriados da carteira inteira em três consultas —
+  // o motor precisa deles para dizer o que está de fato atrasado.
+  const prazosQ = useQuery({ queryKey: ['epeas-prazos'], queryFn: P.getContextoPrazos })
 
   const todos = q.data ?? []
+  const ctxPrazos = prazosQ.data ?? P.CONTEXTO_VAZIO
   const naoLidos = resumoQ.data?.naoLidos ?? new Map<string, number>()
   const mencionado = resumoQ.data?.mencionado ?? new Set<string>()
 
@@ -94,21 +100,21 @@ function EpeasPage() {
               c.gerente_nucleo_id === person.id ||
               c.scrum_master_id === person.id ||
               c.assessores_projeto_ids.includes(person.id)))
-        const prazoEstourado = E.statusPrazo(c)?.nivel === 'estourado'
+        const prazoEstourado = P.prazoDoContrato(c, ctxPrazos).atrasado
         return minhaFase || mencionado.has(c.contrato_id) || c.excecoes_abertas > 0 || prazoEstourado
       })
       .sort((a, b) => {
         // prazo do cliente estourado vem antes de tudo: é o único destes
         // que o cliente enxerga. Depois exceção, atraso de etapa e menção.
         const peso = (c: E.EpeasContrato) =>
-          (E.statusPrazo(c)?.nivel === 'estourado' ? 200 : 0) +
+          (P.prazoDoContrato(c, ctxPrazos).atrasado ? 200 : 0) +
           (c.excecoes_abertas > 0 ? 100 : 0) +
           (E.statusEtapa(c).saude === 'atrasado' ? 50 : 0) +
           (mencionado.has(c.contrato_id) ? 25 : 0) +
           E.statusEtapa(c).dias
         return peso(b) - peso(a)
       })
-  }, [todos, ehNegocios, ehGestao, ehProjetos, person.id, mencionado])
+  }, [todos, ehNegocios, ehGestao, ehProjetos, person.id, mencionado, ctxPrazos])
 
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase()
@@ -122,7 +128,13 @@ function EpeasPage() {
     )
   }, [todos, busca])
 
-  const atrasados = todos.filter((c) => E.statusEtapa(c).saude === 'atrasado').length
+  // Atraso agora é o do motor: dias úteis, a partir de evento registrado e
+  // descontada a suspensão. Sem baseline não é atraso, é falta de dado.
+  const atrasados = todos.filter((c) => P.prazoDoContrato(c, ctxPrazos).atrasado).length
+  const semBaseline = todos.filter((c) => !P.temBaseline(c.contrato_id, ctxPrazos)).length
+  const suspensos = todos.filter(
+    (c) => P.prazoDoContrato(c, ctxPrazos).situacao === 'suspenso',
+  ).length
   const comExcecao = todos.filter((c) => c.excecoes_abertas > 0).length
 
   function acaoDe(c: E.EpeasContrato) {
@@ -169,14 +181,19 @@ function EpeasPage() {
             Do fechamento à entrega — Comercial, Gestão e Projetos no mesmo lugar.
           </p>
         </div>
-        {(ehNegocios || ehDirex) && <NovoContratoDialog />}
+        <div className="flex flex-wrap items-center gap-2">
+          {ehDirex && <BaselineEmLote contratos={todos} ctx={ctxPrazos} />}
+          {(ehNegocios || ehDirex) && <NovoContratoDialog />}
+        </div>
       </header>
 
       {/* ---- termômetro ---- */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Indicador rotulo="Em andamento" valor={todos.filter((c) => c.etapa_macro !== 'projetos_entregue').length} />
         <Indicador rotulo="Precisam de mim" valor={pendencias.length} destaque={pendencias.length > 0} />
         <Indicador rotulo="Atrasados" valor={atrasados} tom={atrasados > 0 ? 'danger' : undefined} />
+        <Indicador rotulo="Sem baseline" valor={semBaseline} />
+        <Indicador rotulo="Suspensos" valor={suspensos} />
         <Indicador rotulo="Com exceção" valor={comExcecao} tom={comExcecao > 0 ? 'danger' : undefined} />
       </div>
 
@@ -219,7 +236,12 @@ function EpeasPage() {
           </div>
         )
       ) : vista === 'pipeline' ? (
-        <Pipeline contratos={todos} naoLidos={naoLidos} mencionado={mencionado} />
+        <Pipeline
+          contratos={todos}
+          naoLidos={naoLidos}
+          mencionado={mencionado}
+          ctxPrazos={ctxPrazos}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           <Input
@@ -294,10 +316,12 @@ function Pipeline({
   contratos,
   naoLidos,
   mencionado,
+  ctxPrazos,
 }: {
   contratos: E.EpeasContrato[]
   naoLidos: Map<string, number>
   mencionado: Set<string>
+  ctxPrazos: P.ContextoPrazos
 }) {
   const fases = ['comercial', 'gestao', 'projetos'] as const
   return (
@@ -359,19 +383,15 @@ function Pipeline({
                       há {s.dias}d {s.saude === 'atrasado' && `· prazo ${s.sla}d`}
                     </p>
                     {(() => {
-                      const pz = E.statusPrazo(c)
-                      if (!pz || pz.entregue || pz.nivel === 'ok') return null
-                      return (
-                        <p
-                          className={`mt-0.5 text-xs font-medium ${
-                            pz.nivel === 'estourado' ? 'text-status-danger' : 'text-status-warning'
-                          }`}
-                        >
-                          {pz.nivel === 'estourado'
-                            ? `cliente esperava há ${Math.abs(pz.dias)}d`
-                            : `entrega ao cliente em ${pz.dias}d`}
-                        </p>
-                      )
+                      const pz = P.prazoDoContrato(c, ctxPrazos)
+                      if (pz.situacao === 'no_prazo' || pz.situacao === 'sem_prazo') return null
+                      const tom =
+                        pz.situacao === 'estourado'
+                          ? 'text-status-danger'
+                          : pz.situacao === 'perto'
+                            ? 'text-status-warning'
+                            : 'text-muted-foreground'
+                      return <p className={`mt-0.5 text-xs font-medium ${tom}`}>{pz.explicacao}</p>
                     })()}
                   </Link>
                 )
