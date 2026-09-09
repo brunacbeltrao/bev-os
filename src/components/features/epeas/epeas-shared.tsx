@@ -49,7 +49,7 @@ export function ContratoCard({
   mencionado?: boolean
 }) {
   const fase = E.faseDaEtapa(c.etapa_macro)
-  const alerta = E.alertaPagamento(c)
+  const execucao = E.statusEtapaServico(c)
   const status = E.statusEtapa(c)
 
   return (
@@ -103,17 +103,29 @@ export function ContratoCard({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium">{E.ETAPA_MACRO_LABELS[c.etapa_macro]}</span>
-            {c.etapa_execucao && (
-              <Badge variant={E.ETAPA_EXECUCAO_BADGE[c.etapa_execucao]} className="w-fit">
-                {E.ETAPA_EXECUCAO_LABELS[c.etapa_execucao]}
+            {c.etapa_servico && (
+              <Badge
+                variant={
+                  execucao?.nivel === 'estourado'
+                    ? 'danger'
+                    : execucao?.nivel === 'perto'
+                      ? 'warning'
+                      : 'info'
+                }
+                className="w-fit"
+              >
+                {c.etapa_servico.ordem}. {c.etapa_servico.nome}
               </Badge>
             )}
-            {alerta && (
+            {execucao && execucao.nivel !== 'ok' && (
               <span
-                className={`text-xs font-medium ${alerta.nivel === 'critico' ? 'text-status-danger' : 'text-status-warning'}`}
+                className={`text-xs font-medium ${
+                  execucao.nivel === 'estourado' ? 'text-status-danger' : 'text-status-warning'
+                }`}
               >
-                {alerta.nivel === 'critico' ? 'Pagamento crítico' : 'Pagamento pendente'} · há{' '}
-                {alerta.dias} dias
+                {execucao.nivel === 'estourado'
+                  ? `passou do prazo de ${execucao.prazo}d — há ${execucao.dias}d nesta etapa`
+                  : `no limite: ${execucao.dias}d de ${execucao.prazo}d`}
               </span>
             )}
           </div>

@@ -68,28 +68,42 @@ export const FASE_LABELS = {
 } as const
 
 // ---------------------------------------------------------------------------
-// Execução — fixo a Registro de Marca nesta onda (PRD §3.4 e §5).
-// Onda B troca por fluxo configurável por serviço.
+// Execução — trilha configurável por serviço (PRD, Onda B).
+//
+// A Onda A tinha uma lista fixa de seis etapas, e só de Registro de Marca.
+// Agora cada serviço tem a sua trilha em `servico_etapas`, com prazo próprio
+// por etapa, vinda da aba "Configurações" da planilha do piloto. Alterar o
+// processo passa a ser mexer numa tabela, não num deploy.
 // ---------------------------------------------------------------------------
 
-export type EtapaExecucao =
-  | 'gru_emitir'
-  | 'gru_aguardando_pagamento'
-  | 'protocolo_pendente'
-  | 'protocolo_feito'
-  | 'acompanhamento'
-  | 'concluido'
+export interface ServicoEtapa {
+  id: string
+  servico_id: string
+  ordem: number
+  nome: string
+  prazo_dias: number
+}
 
-export const ETAPAS_EXECUCAO: EtapaExecucao[] = [
-  'gru_emitir',
-  'gru_aguardando_pagamento',
-  'protocolo_pendente',
-  'protocolo_feito',
-  'acompanhamento',
-  'concluido',
-]
+/** Trilha de um serviço, em ordem. Vazia = serviço sem trilha configurada. */
+export async function getServicoEtapas(servicoId: string | null): Promise<ServicoEtapa[]> {
+  if (!servicoId) return []
+  const { data, error } = await supabase
+    .from('servico_etapas')
+    .select('id, servico_id, ordem, nome, prazo_dias')
+    .eq('servico_id', servicoId)
+    .order('ordem')
+  if (error) throw error
+  return (data ?? []) as ServicoEtapa[]
+}
 
-export const ETAPA_EXECUCAO_LABELS: Record<EtapaExecucao, string> = {
+/**
+ * Rótulos da execução da Onda A.
+ *
+ * A coluna `etapa_execucao` não é mais escrita, mas linhas antigas do
+ * histórico ainda guardam estes valores — sem o mapa, a linha do tempo
+ * mostraria `gru_aguardando_pagamento` cru para quem for ler o passado.
+ */
+const ETAPA_EXECUCAO_LEGADO: Record<string, string> = {
   gru_emitir: 'GRU a emitir',
   gru_aguardando_pagamento: 'Aguardando pagamento',
   protocolo_pendente: 'Protocolo pendente',
@@ -97,18 +111,6 @@ export const ETAPA_EXECUCAO_LABELS: Record<EtapaExecucao, string> = {
   acompanhamento: 'Acompanhamento',
   concluido: 'Concluído',
 }
-
-export const ETAPA_EXECUCAO_BADGE: Record<EtapaExecucao, 'warning' | 'danger' | 'success' | 'info' | 'neutral'> = {
-  gru_emitir: 'warning',
-  gru_aguardando_pagamento: 'danger',
-  protocolo_pendente: 'warning',
-  protocolo_feito: 'success',
-  acompanhamento: 'info',
-  concluido: 'success',
-}
-
-/** Serviço com fluxo de execução mapeado nesta onda. */
-export const SERVICO_COM_EXECUCAO = 'Registro de Marca'
 
 // ---------------------------------------------------------------------------
 
@@ -121,7 +123,7 @@ export interface EpeasContrato {
   assessores_projeto_ids: string[]
   scrum_master_id: string | null
   etapa_macro: EtapaMacro
-  etapa_execucao: EtapaExecucao | null
+  etapa_servico_id: string | null
   link_formulario_notion: string | null
   link_autentique: string | null
   link_grupo_whatsapp: string | null
@@ -133,18 +135,24 @@ export interface EpeasContrato {
   inpi_processo: string | null
   inpi_classe: string | null
   inpi_data_protocolo: string | null
+  csat_enviado_em: string | null
+  termo_enviado_em: string | null
+  nf_emitida_em: string | null
   created_at: string
   etapa_macro_em: string
-  etapa_execucao_em: string | null
+  etapa_servico_em: string | null
   contrato: {
     id: string
     cliente: string
+    /** Marca do cliente, quando difere da razão social em `cliente`. */
+    nome_comercial: string | null
     valor: number
     data_fechamento: string
     responsavel_id: string | null
     servico: { id: string; nome: string } | null
     responsavel: { id: string; nome: string } | null
   }
+  etapa_servico: { id: string; ordem: number; nome: string; prazo_dias: number } | null
   nucleo: { id: string; nome: string; slug: string } | null
   gestao_responsavel: { id: string; nome: string } | null
   gerente_nucleo: { id: string; nome: string } | null
@@ -154,16 +162,18 @@ export interface EpeasContrato {
 
 const SELECT = `
   id, contrato_id, gestao_responsavel_id, nucleo_id, gerente_nucleo_id,
-  assessores_projeto_ids, scrum_master_id, etapa_macro, etapa_execucao,
+  assessores_projeto_ids, scrum_master_id, etapa_macro, etapa_servico_id,
   link_formulario_notion, link_autentique, link_grupo_whatsapp,
-  data_alocacao, created_at, etapa_macro_em, etapa_execucao_em,
+  data_alocacao, created_at, etapa_macro_em, etapa_servico_em,
   prazo_entrega, cliente_contato_nome, cliente_contato_email,
   cliente_contato_telefone, inpi_processo, inpi_classe, inpi_data_protocolo,
+  csat_enviado_em, termo_enviado_em, nf_emitida_em,
   contrato:contratos!inner(
-    id, cliente, valor, data_fechamento, responsavel_id,
+    id, cliente, nome_comercial, valor, data_fechamento, responsavel_id,
     servico:project_services(id, nome),
     responsavel:people!contratos_responsavel_id_fkey(id, nome)
   ),
+  etapa_servico:servico_etapas(id, ordem, nome, prazo_dias),
   nucleo:project_nucleos(id, nome, slug),
   gestao_responsavel:people!epeas_lifecycle_gestao_responsavel_id_fkey(id, nome),
   gerente_nucleo:people!epeas_lifecycle_gerente_nucleo_id_fkey(id, nome),
@@ -219,7 +229,10 @@ export async function iniciarCicloDeVida(contratoId: string) {
 
 export type EpeasPatch = Partial<{
   etapa_macro: EtapaMacro
-  etapa_execucao: EtapaExecucao | null
+  etapa_servico_id: string | null
+  csat_enviado_em: string | null
+  termo_enviado_em: string | null
+  nf_emitida_em: string | null
   gestao_responsavel_id: string | null
   nucleo_id: string | null
   gerente_nucleo_id: string | null
@@ -244,14 +257,23 @@ export async function atualizarEpeas(contratoId: string, patch: EpeasPatch) {
 }
 
 /** Avança para a etapa seguinte do fluxo macro. */
-export async function avancarEtapa(contratoId: string, atual: EtapaMacro) {
+export async function avancarEtapa(
+  contratoId: string,
+  atual: EtapaMacro,
+  servicoId?: string | null,
+) {
   const i = ETAPAS_MACRO.indexOf(atual)
   const proxima = ETAPAS_MACRO[i + 1]
   if (!proxima) throw new Error('O contrato já está na última etapa.')
 
   const patch: EpeasPatch = { etapa_macro: proxima }
-  // ao entrar em execução, começa pelo primeiro passo do fluxo do serviço
-  if (proxima === 'projetos_em_execucao') patch.etapa_execucao = 'gru_emitir'
+  // Ao entrar em execução, abre na primeira etapa da trilha do serviço.
+  // Serviço sem trilha configurada entra em execução sem etapa, e a tela
+  // avisa — melhor que travar o avanço por uma configuração que falta.
+  if (proxima === 'projetos_em_execucao') {
+    const trilha = await getServicoEtapas(servicoId ?? null)
+    patch.etapa_servico_id = trilha[0]?.id ?? null
+  }
   await atualizarEpeas(contratoId, patch)
 }
 
@@ -427,7 +449,7 @@ export async function resolverExcecao(id: string) {
 
 export interface HistoricoItem {
   id: string
-  campo: 'etapa_macro' | 'etapa_execucao'
+  campo: 'etapa_macro' | 'etapa_execucao' | 'etapa_servico'
   etapa_anterior: string | null
   etapa_nova: string
   created_at: string
@@ -448,20 +470,27 @@ export async function getHistorico(contratoId: string): Promise<HistoricoItem[]>
 export function rotuloEtapa(campo: string, valor: string | null): string {
   if (!valor) return '—'
   if (campo === 'etapa_macro') return ETAPA_MACRO_LABELS[valor as EtapaMacro] ?? valor
-  return ETAPA_EXECUCAO_LABELS[valor as EtapaExecucao] ?? valor
+  // A trilha grava o nome da etapa já legível; só o legado precisa de mapa.
+  if (campo === 'etapa_servico') return valor
+  return ETAPA_EXECUCAO_LEGADO[valor] ?? valor
 }
 
 /**
- * Alerta de pagamento parado (PRD §5): mais de 3 dias avisa, mais de 5 é crítico.
- * Só se aplica a "aguardando pagamento".
+ * Situação da etapa de execução, contra o prazo configurado para ela.
+ *
+ * Substitui o alerta de pagamento da Onda A, que só sabia olhar uma etapa
+ * de um serviço. Agora cada etapa traz o próprio `prazo_dias`, então o
+ * mesmo cálculo serve para os sete serviços — e para os que vierem.
  */
-export function alertaPagamento(c: EpeasContrato): { nivel: 'aviso' | 'critico'; dias: number } | null {
-  if (c.etapa_execucao !== 'gru_aguardando_pagamento') return null
-  const desde = c.etapa_execucao_em ?? c.created_at
+export function statusEtapaServico(
+  c: EpeasContrato,
+): { dias: number; prazo: number; nivel: 'ok' | 'perto' | 'estourado' } | null {
+  if (!c.etapa_servico) return null
+  const desde = c.etapa_servico_em ?? c.etapa_macro_em ?? c.created_at
   const dias = Math.floor((Date.now() - new Date(desde).getTime()) / 86_400_000)
-  if (dias > 5) return { nivel: 'critico', dias }
-  if (dias > 3) return { nivel: 'aviso', dias }
-  return null
+  const prazo = c.etapa_servico.prazo_dias
+  const nivel = dias > prazo ? 'estourado' : dias >= prazo - 1 ? 'perto' : 'ok'
+  return { dias, prazo, nivel }
 }
 
 // ===========================================================================

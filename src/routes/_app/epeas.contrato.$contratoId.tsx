@@ -59,6 +59,12 @@ function ContratoEpeasPage() {
     queryKey: ['directory-all', cycle.id],
     queryFn: () => getDirectory(cycle.id, null),
   })
+  // A trilha é do serviço, não do contrato: muda em Configurações, não aqui.
+  const trilhaQ = useQuery({
+    queryKey: ['servico-etapas', q.data?.contrato.servico?.id],
+    queryFn: () => E.getServicoEtapas(q.data?.contrato.servico?.id ?? null),
+    enabled: !!q.data?.contrato.servico?.id,
+  })
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['epeas-contrato', contratoId] })
@@ -73,6 +79,17 @@ function ContratoEpeasPage() {
       toast.success('Contrato atualizado.')
       invalidar()
     },
+  })
+  const mutAvancar = useMutation({
+    // avancarEtapa deduz a próxima da atual; a trilha do serviço decide a
+    // primeira etapa de execução quando o contrato entra em execução.
+    mutationFn: () =>
+      E.avancarEtapa(contratoId, q.data!.etapa_macro, q.data!.contrato.servico?.id ?? null),
+    onSuccess: () => {
+      toast.success('Contrato avançou de etapa.')
+      invalidar()
+    },
+    onError: () => toast.error('Não foi possível avançar a etapa.'),
   })
   const mutResponsavel = useMutation({
     mutationFn: (pessoaId: string | null) => E.definirResponsavelComercial(contratoId, pessoaId),
@@ -115,7 +132,8 @@ function ContratoEpeasPage() {
   const emExecucao = c.etapa_macro === 'projetos_em_execucao'
   const abertas = (excQ.data ?? []).filter((e) => e.status === 'aberto')
   const pessoas = pessoasQ.data ?? []
-  const alerta = E.alertaPagamento(c)
+  const execucao = E.statusEtapaServico(c)
+  const trilha = trilhaQ.data ?? []
   const prazo = E.statusPrazo(c)
 
   return (
@@ -126,7 +144,12 @@ function ContratoEpeasPage() {
 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{c.contrato.cliente}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {c.contrato.nome_comercial ?? c.contrato.cliente}
+          </h1>
+          {c.contrato.nome_comercial && (
+            <p className="text-muted-foreground text-xs">{c.contrato.cliente}</p>
+          )}
           <p className="text-muted-foreground mt-1 text-sm">
             {c.contrato.servico?.nome ?? 'Serviço não informado'} ·{' '}
             {fmtBRLCurto(Number(c.contrato.valor))} · fechado em {fmtData(c.contrato.data_fechamento)}
@@ -156,17 +179,6 @@ function ContratoEpeasPage() {
                 </Button>
               </div>
             ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {alerta && (
-        <Card className={alerta.nivel === 'critico' ? 'border-status-danger/40 bg-status-danger-bg/30' : 'border-status-warning/40 bg-status-warning-bg/30'}>
-          <CardContent className="p-4 text-sm">
-            <span className={alerta.nivel === 'critico' ? 'text-status-danger font-semibold' : 'text-status-warning font-semibold'}>
-              {alerta.nivel === 'critico' ? 'Pagamento crítico' : 'Pagamento pendente'}
-            </span>{' '}
-            — aguardando há {alerta.dias} dias.
           </CardContent>
         </Card>
       )}
@@ -205,42 +217,83 @@ function ContratoEpeasPage() {
       <ChecklistEtapa
         contrato={c}
         avancando={mutPatch.isPending}
-        onAvancar={() =>
-          proxima &&
-          mutPatch.mutate(
-            proxima === 'projetos_em_execucao'
-              ? { etapa_macro: proxima, etapa_execucao: 'gru_emitir' }
-              : { etapa_macro: proxima },
-          )
-        }
+        onAvancar={() => proxima && mutAvancar.mutate()}
       />
 
-      {/* -------- execução (Registro de Marca) -------- */}
+      {/* -------- execução: trilha do serviço -------- */}
       {emExecucao && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Execução · {c.contrato.servico?.nome ?? 'serviço'}</CardTitle>
+            <CardTitle className="text-base">
+              Execução · {c.contrato.servico?.nome ?? 'serviço'}
+            </CardTitle>
             <CardDescription>
-              Fluxo de Registro de Marca. Outros serviços entram na Onda B.
+              {trilha.length > 0
+                ? 'Cada etapa tem o prazo definido em Configurações. O prazo conta a partir da entrada na etapa.'
+                : 'Este serviço ainda não tem trilha configurada — dá para tocar o contrato, mas sem prazo por etapa.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2">
-              {E.ETAPAS_EXECUCAO.map((etapa) => {
-                const atual = c.etapa_execucao === etapa
-                return (
-                  <Button
-                    key={etapa}
-                    size="sm"
-                    variant={atual ? 'default' : 'outline'}
-                    disabled={mutPatch.isPending}
-                    onClick={() => mutPatch.mutate({ etapa_execucao: etapa })}
-                  >
-                    {E.ETAPA_EXECUCAO_LABELS[etapa]}
-                  </Button>
-                )
-              })}
-            </div>
+            {trilha.length === 0 ? (
+              <Vazio>
+                Nenhuma etapa cadastrada para {c.contrato.servico?.nome ?? 'este serviço'}.
+              </Vazio>
+            ) : (
+              <ol className="flex flex-col gap-1.5">
+                {trilha.map((etapa) => {
+                  const atual = c.etapa_servico_id === etapa.id
+                  const passou = !!c.etapa_servico && etapa.ordem < c.etapa_servico.ordem
+                  return (
+                    <li key={etapa.id}>
+                      <button
+                        type="button"
+                        disabled={mutPatch.isPending}
+                        onClick={() => mutPatch.mutate({ etapa_servico_id: etapa.id })}
+                        className={`flex w-full items-center gap-3 rounded-md border p-2.5 text-left transition-colors ${
+                          atual
+                            ? 'border-primary bg-primary/5'
+                            : 'hover:bg-accent/50 border-transparent'
+                        }`}
+                      >
+                        <span
+                          className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                            atual
+                              ? 'bg-primary text-primary-foreground'
+                              : passou
+                                ? 'bg-accent text-accent-foreground'
+                                : 'border-input text-muted-foreground border'
+                          }`}
+                        >
+                          {passou ? <Check className="size-3.5" /> : etapa.ordem}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`text-sm ${passou ? 'text-muted-foreground' : ''}`}>
+                            {etapa.nome}
+                          </span>
+                          <span className="text-muted-foreground block text-xs">
+                            prazo de {etapa.prazo_dias} dias
+                          </span>
+                        </span>
+                        {atual && execucao && (
+                          <span
+                            className={`shrink-0 text-xs font-medium ${
+                              execucao.nivel === 'estourado'
+                                ? 'text-status-danger'
+                                : execucao.nivel === 'perto'
+                                  ? 'text-status-warning'
+                                  : 'text-muted-foreground'
+                            }`}
+                          >
+                            há {execucao.dias}d
+                            {execucao.nivel === 'estourado' && ' · atrasada'}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
 
             {/* Dados do processo: é por eles que se acompanha na RPI. */}
             <div className="grid gap-3 border-t pt-4 sm:grid-cols-3">

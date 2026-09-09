@@ -68,7 +68,10 @@ function EpeasPage() {
   const mencionado = resumoQ.data?.mencionado ?? new Set<string>()
 
   const mutAvancar = useMutation({
-    mutationFn: ({ id, atual }: { id: string; atual: E.EtapaMacro }) => E.avancarEtapa(id, atual),
+    // o serviço vai junto: é dele que sai a primeira etapa da trilha quando
+    // o contrato entra em execução
+    mutationFn: ({ id, atual, servicoId }: { id: string; atual: E.EtapaMacro; servicoId: string | null }) =>
+      E.avancarEtapa(id, atual, servicoId),
     onSuccess: () => {
       toast.success('Etapa avançada.')
       qc.invalidateQueries({ queryKey: ['epeas'] })
@@ -113,6 +116,7 @@ function EpeasPage() {
     return todos.filter(
       (c) =>
         c.contrato.cliente.toLowerCase().includes(t) ||
+        (c.contrato.nome_comercial ?? '').toLowerCase().includes(t) ||
         (c.contrato.servico?.nome ?? '').toLowerCase().includes(t) ||
         (c.nucleo?.nome ?? '').toLowerCase().includes(t),
     )
@@ -136,7 +140,13 @@ function EpeasPage() {
           size="sm"
           className="gap-1.5"
           disabled={mutAvancar.isPending}
-          onClick={() => mutAvancar.mutate({ id: c.contrato_id, atual: c.etapa_macro })}
+          onClick={() =>
+            mutAvancar.mutate({
+              id: c.contrato_id,
+              atual: c.etapa_macro,
+              servicoId: c.contrato.servico?.id ?? null,
+            })
+          }
         >
           {E.ETAPA_MACRO_LABELS[proxima]}
           <ArrowRight className="size-3.5" />
@@ -323,7 +333,9 @@ function Pipeline({
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <p className="truncate text-sm font-medium">{c.contrato.cliente}</p>
+                      <p className="truncate text-sm font-medium">
+                        {c.contrato.nome_comercial ?? c.contrato.cliente}
+                      </p>
                       <div className="flex shrink-0 items-center gap-1">
                         {mencionado.has(c.contrato_id) && (
                           <AtSign className="text-primary size-3.5" aria-label="Você foi citado" />
