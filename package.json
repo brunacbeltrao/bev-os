@@ -6,7 +6,9 @@
     "dev": "vite dev --port 3000",
     "build": "vite build && cp -r dist/client/* dist/ && mv dist/_shell.html dist/index.html && rm -rf dist/client dist/server",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -42,6 +44,7 @@
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",
     "vite": "^7.1.11",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^5.0.0"
   }
 }
