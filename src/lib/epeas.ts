@@ -402,30 +402,6 @@ export async function urlDocumento(path: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
-// Prazo prometido ao cliente
-// ---------------------------------------------------------------------------
-
-/**
- * Situação do prazo combinado com o cliente.
- *
- * Diferente do SLA por etapa: o SLA cobra o processo interno, este cobra a
- * promessa comercial. Um contrato pode estar em dia em toda etapa e ainda
- * assim estourar o prazo prometido — é esse o caso que dói.
- */
-export function statusPrazo(
-  c: EpeasContrato,
-): { dias: number; nivel: 'ok' | 'perto' | 'estourado'; entregue: boolean } | null {
-  if (!c.prazo_entrega) return null
-  const entregue = c.etapa_macro === 'projetos_entregue'
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const prazo = new Date(c.prazo_entrega + 'T00:00:00')
-  const dias = Math.round((prazo.getTime() - hoje.getTime()) / 86_400_000)
-  const nivel = entregue ? 'ok' : dias < 0 ? 'estourado' : dias <= 3 ? 'perto' : 'ok'
-  return { dias, nivel, entregue }
-}
-
-// ---------------------------------------------------------------------------
 // Exceções
 // ---------------------------------------------------------------------------
 
@@ -496,63 +472,13 @@ export function rotuloEtapa(campo: string, valor: string | null): string {
   return ETAPA_EXECUCAO_LEGADO[valor] ?? valor
 }
 
-/**
- * Situação da etapa de execução, contra o prazo configurado para ela.
- *
- * Substitui o alerta de pagamento da Onda A, que só sabia olhar uma etapa
- * de um serviço. Agora cada etapa traz o próprio `prazo_dias`, então o
- * mesmo cálculo serve para os sete serviços — e para os que vierem.
- */
-export function statusEtapaServico(
-  c: EpeasContrato,
-): { dias: number; prazo: number; nivel: 'ok' | 'perto' | 'estourado' } | null {
-  if (!c.etapa_servico) return null
-  const desde = c.etapa_servico_em ?? c.etapa_macro_em ?? c.created_at
-  const dias = Math.floor((Date.now() - new Date(desde).getTime()) / 86_400_000)
-  const prazo = c.etapa_servico.prazo_dias
-  const nivel = dias > prazo ? 'estourado' : dias >= prazo - 1 ? 'perto' : 'ok'
-  return { dias, prazo, nivel }
-}
-
-// ===========================================================================
-// SLA por etapa — o que a lista de emojis do Telegram sinalizava
-// ===========================================================================
-
-/**
- * Dias tolerados em cada etapa antes de virar atraso.
- * Vem do processo real: assinatura e pagamento são os gargalos conhecidos.
- */
-export const SLA_DIAS: Record<EtapaMacro, number> = {
-  comercial_contrato_fechado: 2,
-  comercial_formulario_enviado: 5,
-  gestao_formulario_conferido: 2,
-  gestao_assessor_definido: 2,
-  gestao_contrato_elaboracao: 5,
-  gestao_contrato_assinatura: 5,
-  gestao_contrato_assinado: 2,
-  projetos_aguardando_alocacao: 3,
-  projetos_alocado: 2,
-  projetos_grupo_criado: 2,
-  projetos_em_execucao: 30,
-  projetos_entregue: 9999,
-}
-
-export type Saude = 'ok' | 'atencao' | 'atrasado'
-
-export interface StatusEtapa {
-  dias: number
-  sla: number
-  saude: Saude
-}
-
-/** Há quantos dias o contrato está parado na etapa, e se isso já é atraso. */
-export function statusEtapa(c: EpeasContrato): StatusEtapa {
-  const desde = c.etapa_macro_em ?? c.created_at
-  const dias = Math.floor((Date.now() - new Date(desde).getTime()) / 86_400_000)
-  const sla = SLA_DIAS[c.etapa_macro]
-  const saude: Saude = dias > sla ? 'atrasado' : dias >= sla - 1 ? 'atencao' : 'ok'
-  return { dias, sla, saude }
-}
+// Prazo NÃO se calcula aqui. Todo cálculo de decorrido, vencimento e atraso
+// mora em `lib/prazos.ts`, e a ligação com o contrato em `lib/epeas-prazos.ts`.
+// Este arquivo já teve três contas de prazo próprias (statusEtapa,
+// statusEtapaServico, statusPrazo) que se contradiziam na mesma tela: o
+// indicador dizia "Atrasados: 0" com 31 cartões vermelhos embaixo.
+// `prazos.motor-unico.test.ts` falha se voltar a existir aritmética de dia
+// fora do motor.
 
 // ===========================================================================
 // Checklist por etapa — define o que é "pronto"

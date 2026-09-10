@@ -39,7 +39,7 @@ import * as C from '@/lib/contratos'
 import * as E from '@/lib/epeas'
 import * as P from '@/lib/epeas-prazos'
 import { isDirexMember } from '@/lib/permissions'
-import { ContratoCard, Vazio } from '@/components/features/epeas/epeas-shared'
+import { ContratoCard, PrazoResumo, Vazio } from '@/components/features/epeas/epeas-shared'
 import { BaselineEmLote } from '@/components/features/epeas/baseline-em-lote'
 
 export const Route = createFileRoute('/_app/epeas/')({ component: EpeasPage })
@@ -100,18 +100,22 @@ function EpeasPage() {
               c.gerente_nucleo_id === person.id ||
               c.scrum_master_id === person.id ||
               c.assessores_projeto_ids.includes(person.id)))
-        const prazoEstourado = P.prazoDoContrato(c, ctxPrazos).atrasado
+        const prazoEstourado = P.prazoContratual(c, ctxPrazos).atrasado
         return minhaFase || mencionado.has(c.contrato_id) || c.excecoes_abertas > 0 || prazoEstourado
       })
       .sort((a, b) => {
-        // prazo do cliente estourado vem antes de tudo: é o único destes
-        // que o cliente enxerga. Depois exceção, atraso de etapa e menção.
-        const peso = (c: E.EpeasContrato) =>
-          (P.prazoDoContrato(c, ctxPrazos).atrasado ? 200 : 0) +
-          (c.excecoes_abertas > 0 ? 100 : 0) +
-          (E.statusEtapa(c).saude === 'atrasado' ? 50 : 0) +
-          (mencionado.has(c.contrato_id) ? 25 : 0) +
-          E.statusEtapa(c).dias
+        // prazo contratual estourado vem antes de tudo: é o único destes
+        // que o cliente enxerga. Depois exceção, SLA interno e menção.
+        const peso = (c: E.EpeasContrato) => {
+          const sla = P.slaDaEtapa(c, ctxPrazos)
+          return (
+            (P.prazoContratual(c, ctxPrazos).atrasado ? 200 : 0) +
+            (c.excecoes_abertas > 0 ? 100 : 0) +
+            (sla.atrasado ? 50 : 0) +
+            (mencionado.has(c.contrato_id) ? 25 : 0) +
+            (sla.decorridos ?? 0)
+          )
+        }
         return peso(b) - peso(a)
       })
   }, [todos, ehNegocios, ehGestao, ehProjetos, person.id, mencionado, ctxPrazos])
@@ -128,12 +132,15 @@ function EpeasPage() {
     )
   }, [todos, busca])
 
-  // Atraso agora é o do motor: dias úteis, a partir de evento registrado e
-  // descontada a suspensão. Sem baseline não é atraso, é falta de dado.
-  const atrasados = todos.filter((c) => P.prazoDoContrato(c, ctxPrazos).atrasado).length
+  // As duas camadas contadas separadamente, porque respondem a perguntas
+  // diferentes: "devemos ao cliente" e "estamos devagar internamente". Antes
+  // só a primeira aparecia aqui, e os cartões mostravam a segunda em
+  // vermelho — daí "Atrasados: 0" com 31 cartões vermelhos embaixo.
+  const atrasados = todos.filter((c) => P.prazoContratual(c, ctxPrazos).atrasado).length
+  const acimaDoSla = todos.filter((c) => P.slaDaEtapa(c, ctxPrazos).atrasado).length
   const semBaseline = todos.filter((c) => !P.temBaseline(c.contrato_id, ctxPrazos)).length
   const suspensos = todos.filter(
-    (c) => P.prazoDoContrato(c, ctxPrazos).situacao === 'suspenso',
+    (c) => P.prazoContratual(c, ctxPrazos).situacao === 'suspenso',
   ).length
   const comExcecao = todos.filter((c) => c.excecoes_abertas > 0).length
 
@@ -191,11 +198,20 @@ function EpeasPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Indicador rotulo="Em andamento" valor={todos.filter((c) => c.etapa_macro !== 'projetos_entregue').length} />
         <Indicador rotulo="Precisam de mim" valor={pendencias.length} destaque={pendencias.length > 0} />
-        <Indicador rotulo="Atrasados" valor={atrasados} tom={atrasados > 0 ? 'danger' : undefined} />
+        <Indicador
+          rotulo="Atrasados com o cliente"
+          valor={atrasados}
+          tom={atrasados > 0 ? 'danger' : undefined}
+        />
+        <Indicador rotulo="Acima do SLA interno" valor={acimaDoSla} />
         <Indicador rotulo="Sem baseline" valor={semBaseline} />
-        <Indicador rotulo="Suspensos" valor={suspensos} />
         <Indicador rotulo="Com exceção" valor={comExcecao} tom={comExcecao > 0 ? 'danger' : undefined} />
       </div>
+      {suspensos > 0 && (
+        <p className="text-muted-foreground -mt-2 text-xs">
+          {suspensos} contrato(s) com prazo suspenso — o contador está congelado neles.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 border-b pb-2">
         <Aba id="pendencias" atual={vista} set={setVista} icone={Inbox}>
@@ -228,6 +244,7 @@ function EpeasPage() {
               <ContratoCard
                 key={c.id}
                 c={c}
+                ctx={ctxPrazos}
                 naoLidos={naoLidos.get(c.contrato_id) ?? 0}
                 mencionado={mencionado.has(c.contrato_id)}
                 acao={acaoDe(c)}
@@ -256,6 +273,7 @@ function EpeasPage() {
               <ContratoCard
                 key={c.id}
                 c={c}
+                ctx={ctxPrazos}
                 naoLidos={naoLidos.get(c.contrato_id) ?? 0}
                 mencionado={mencionado.has(c.contrato_id)}
               />
@@ -342,16 +360,19 @@ function Pipeline({
               </p>
             ) : (
               doFase.map((c) => {
-                const s = E.statusEtapa(c)
+                const contratual = P.prazoContratual(c, ctxPrazos)
+                const sla = P.slaDaEtapa(c, ctxPrazos)
                 return (
                   <Link
                     key={c.id}
                     to="/epeas/contrato/$contratoId"
                     params={{ contratoId: c.contrato_id }}
+                    // A tarja vermelha é do prazo do cliente. SLA interno
+                    // estourado é âmbar: chama atenção sem virar alarme.
                     className={`bg-card hover:bg-accent/50 block rounded-lg border border-l-[3px] p-3 transition-colors ${
-                      s.saude === 'atrasado'
+                      contratual.atrasado
                         ? 'border-l-status-danger'
-                        : s.saude === 'atencao'
+                        : sla.atrasado || sla.situacao === 'perto'
                           ? 'border-l-status-warning'
                           : 'border-l-primary'
                     }`}
@@ -377,22 +398,9 @@ function Pipeline({
                     <p className="text-muted-foreground mt-0.5 text-xs">
                       {E.ETAPA_MACRO_LABELS[c.etapa_macro]}
                     </p>
-                    <p
-                      className={`mt-1 text-xs ${s.saude === 'atrasado' ? 'text-status-danger font-medium' : 'text-muted-foreground'}`}
-                    >
-                      há {s.dias}d {s.saude === 'atrasado' && `· prazo ${s.sla}d`}
-                    </p>
-                    {(() => {
-                      const pz = P.prazoDoContrato(c, ctxPrazos)
-                      if (pz.situacao === 'no_prazo' || pz.situacao === 'sem_prazo') return null
-                      const tom =
-                        pz.situacao === 'estourado'
-                          ? 'text-status-danger'
-                          : pz.situacao === 'perto'
-                            ? 'text-status-warning'
-                            : 'text-muted-foreground'
-                      return <p className={`mt-0.5 text-xs font-medium ${tom}`}>{pz.explicacao}</p>
-                    })()}
+                    <div className="mt-1">
+                      <PrazoResumo contratual={contratual} sla={sla} alinhar="start" />
+                    </div>
                   </Link>
                 )
               })

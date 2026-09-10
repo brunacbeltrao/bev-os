@@ -7,6 +7,8 @@ import { AlertTriangle, AtSign, ExternalLink, MessageSquare } from 'lucide-react
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import * as E from '@/lib/epeas'
+import * as P from '@/lib/epeas-prazos'
+import { SITUACAO_LABELS, type ResultadoPrazo } from '@/lib/prazos'
 
 export const fmtBRLCurto = (n: number) =>
   Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
@@ -36,28 +38,79 @@ export function ProgressoEtapa({ etapa }: { etapa: E.EtapaMacro }) {
   )
 }
 
+/**
+ * As duas camadas de prazo, lado a lado.
+ *
+ * Elas respondem perguntas diferentes e podem discordar: um contrato pode
+ * estar dentro do prazo da cláusula e acima da nossa estimativa interna. Por
+ * isso aparecem separadas, e só a de cima usa a palavra "atrasado".
+ */
+export function PrazoResumo({
+  contratual,
+  sla,
+  alinhar = 'end',
+}: {
+  contratual: ResultadoPrazo
+  sla: ResultadoPrazo
+  alinhar?: 'start' | 'end'
+}) {
+  const tomContratual =
+    contratual.situacao === 'estourado'
+      ? 'text-status-danger font-medium'
+      : contratual.situacao === 'perto'
+        ? 'text-status-warning'
+        : 'text-muted-foreground'
+  const tomSla =
+    sla.situacao === 'estourado' || sla.situacao === 'perto'
+      ? 'text-status-warning'
+      : 'text-muted-foreground'
+
+  return (
+    <div
+      className={`flex flex-col gap-0.5 text-xs ${alinhar === 'end' ? 'items-end' : 'items-start'}`}
+    >
+      {contratual.situacao !== 'sem_prazo' && (
+        <span className={tomContratual}>
+          Cliente · {SITUACAO_LABELS[contratual.situacao]}
+          {contratual.restantes !== null &&
+            contratual.situacao !== 'sem_baseline' &&
+            ` (${contratual.restantes < 0 ? `${Math.abs(contratual.restantes)}d além` : `${contratual.restantes}d`})`}
+        </span>
+      )}
+      {sla.situacao !== 'sem_prazo' && (
+        <span className={tomSla}>
+          Interno · {P.SLA_LABELS[sla.situacao]}
+          {sla.decorridos !== null && ` (${sla.decorridos}d úteis nesta etapa)`}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** Card de contrato usado em todas as filas. */
 export function ContratoCard({
   c,
+  ctx,
   acao,
   naoLidos = 0,
   mencionado = false,
 }: {
   c: E.EpeasContrato
+  ctx: P.ContextoPrazos
   acao?: React.ReactNode
   naoLidos?: number
   mencionado?: boolean
 }) {
   const fase = E.faseDaEtapa(c.etapa_macro)
-  const execucao = E.statusEtapaServico(c)
-  const status = E.statusEtapa(c)
+  const contratual = P.prazoContratual(c, ctx)
+  const sla = P.slaDaEtapa(c, ctx)
 
   return (
     <Card
       className={
-        c.excecoes_abertas > 0
+        c.excecoes_abertas > 0 || contratual.atrasado
           ? 'border-status-danger/40 bg-status-danger-bg/30'
-          : status.saude === 'atrasado'
+          : sla.atrasado
             ? 'border-status-warning/40'
             : undefined
       }
@@ -104,45 +157,14 @@ export function ContratoCard({
           <div className="flex flex-col gap-1">
             <span className="text-sm font-medium">{E.ETAPA_MACRO_LABELS[c.etapa_macro]}</span>
             {c.etapa_servico && (
-              <Badge
-                variant={
-                  execucao?.nivel === 'estourado'
-                    ? 'danger'
-                    : execucao?.nivel === 'perto'
-                      ? 'warning'
-                      : 'info'
-                }
-                className="w-fit"
-              >
+              <Badge variant={P.SLA_TOM[sla.situacao]} className="w-fit">
                 {c.etapa_servico.ordem}. {c.etapa_servico.nome}
               </Badge>
-            )}
-            {execucao && execucao.nivel !== 'ok' && (
-              <span
-                className={`text-xs font-medium ${
-                  execucao.nivel === 'estourado' ? 'text-status-danger' : 'text-status-warning'
-                }`}
-              >
-                {execucao.nivel === 'estourado'
-                  ? `passou do prazo de ${execucao.prazo}d — há ${execucao.dias}d nesta etapa`
-                  : `no limite: ${execucao.dias}d de ${execucao.prazo}d`}
-              </span>
             )}
           </div>
           <div className="flex flex-col items-end gap-1">
             <ProgressoEtapa etapa={c.etapa_macro} />
-            <span
-              className={`text-xs ${
-                status.saude === 'atrasado'
-                  ? 'text-status-danger font-medium'
-                  : status.saude === 'atencao'
-                    ? 'text-status-warning'
-                    : 'text-muted-foreground'
-              }`}
-            >
-              há {status.dias}d nesta etapa
-              {status.saude === 'atrasado' && ` · prazo ${status.sla}d`}
-            </span>
+            <PrazoResumo contratual={contratual} sla={sla} />
           </div>
         </div>
 

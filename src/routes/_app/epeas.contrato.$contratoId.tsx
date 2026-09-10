@@ -5,7 +5,7 @@
  * Autentique e a memória de quem alocou: timeline macro e de execução,
  * links, alocação em núcleo, exceções abertas e histórico completo.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowLeft, Check, Plus, X } from 'lucide-react'
@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useApp } from '@/lib/app-context'
 import { getDirectory } from '@/lib/org'
 import * as E from '@/lib/epeas'
+import * as P from '@/lib/epeas-prazos'
 import { supabase } from '@/lib/supabase'
 import { fmtBRLCurto, fmtData, LinkExterno, Vazio } from '@/components/features/epeas/epeas-shared'
 import { Conversa } from '@/components/features/epeas/conversa'
@@ -66,6 +67,27 @@ function ContratoEpeasPage() {
     queryFn: () => E.getServicoEtapas(q.data?.contrato.servico?.id ?? null),
     enabled: !!q.data?.contrato.servico?.id,
   })
+
+  // Eventos, suspensões e feriados ficam aqui em cima e descem por prop:
+  // painel de prazo, checklist e trilha precisam do mesmo contexto, e cada
+  // um buscando o seu era o caminho curto para voltarem a divergir.
+  const feriadosQ = useQuery({ queryKey: ['feriados'], queryFn: P.getFeriados, staleTime: Infinity })
+  const eventosQ = useQuery({
+    queryKey: ['epeas-eventos', contratoId],
+    queryFn: () => P.getEventos(contratoId),
+  })
+  const suspQ = useQuery({
+    queryKey: ['epeas-suspensoes', contratoId],
+    queryFn: () => P.getSuspensoes(contratoId),
+  })
+  const ctxPrazos: P.ContextoPrazos = useMemo(
+    () => ({
+      feriados: feriadosQ.data ?? new Set<string>(),
+      eventos: new Map([[contratoId, eventosQ.data ?? []]]),
+      suspensoes: new Map([[contratoId, suspQ.data ?? []]]),
+    }),
+    [contratoId, feriadosQ.data, eventosQ.data, suspQ.data],
+  )
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['epeas-contrato', contratoId] })
@@ -133,7 +155,7 @@ function ContratoEpeasPage() {
   const emExecucao = c.etapa_macro === 'projetos_em_execucao'
   const abertas = (excQ.data ?? []).filter((e) => e.status === 'aberto')
   const pessoas = pessoasQ.data ?? []
-  const execucao = E.statusEtapaServico(c)
+  const slaExecucao = P.slaEtapaServico(c, ctxPrazos)
   const trilha = trilhaQ.data ?? []
 
   return (
@@ -183,10 +205,11 @@ function ContratoEpeasPage() {
         </Card>
       )}
 
-      <PainelPrazo contrato={c} />
+      <PainelPrazo contrato={c} ctx={ctxPrazos} />
 
       <ChecklistEtapa
         contrato={c}
+        ctx={ctxPrazos}
         avancando={mutPatch.isPending}
         onAvancar={() => proxima && mutAvancar.mutate()}
       />
@@ -200,8 +223,8 @@ function ContratoEpeasPage() {
             </CardTitle>
             <CardDescription>
               {trilha.length > 0
-                ? 'Cada etapa tem o prazo definido em Configurações. O prazo conta a partir da entrada na etapa.'
-                : 'Este serviço ainda não tem trilha configurada — dá para tocar o contrato, mas sem prazo por etapa.'}
+                ? 'O prazo de cada etapa é SLA interno: estimativa nossa, contada da entrada na etapa. Não é o prazo da cláusula — esse fica no painel de prazo, acima.'
+                : 'Este serviço ainda não tem trilha configurada — dá para tocar o contrato, mas sem SLA por etapa.'}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -242,21 +265,19 @@ function ContratoEpeasPage() {
                             {etapa.nome}
                           </span>
                           <span className="text-muted-foreground block text-xs">
-                            prazo de {etapa.prazo_dias} dias
+                            SLA interno de {etapa.prazo_dias} dias úteis
                           </span>
                         </span>
-                        {atual && execucao && (
+                        {atual && slaExecucao && (
                           <span
                             className={`shrink-0 text-xs font-medium ${
-                              execucao.nivel === 'estourado'
-                                ? 'text-status-danger'
-                                : execucao.nivel === 'perto'
-                                  ? 'text-status-warning'
-                                  : 'text-muted-foreground'
+                              slaExecucao.situacao === 'estourado' || slaExecucao.situacao === 'perto'
+                                ? 'text-status-warning'
+                                : 'text-muted-foreground'
                             }`}
                           >
-                            há {execucao.dias}d
-                            {execucao.nivel === 'estourado' && ' · atrasada'}
+                            {P.SLA_LABELS[slaExecucao.situacao]}
+                            {slaExecucao.decorridos !== null && ` · ${slaExecucao.decorridos}d úteis`}
                           </span>
                         )}
                       </button>

@@ -6,7 +6,7 @@
  * que ninguém podia evitar.
  */
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CalendarClock, Pause, Play, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useApp } from '@/lib/app-context'
+import * as E from '@/lib/epeas'
 import type { EpeasContrato } from '@/lib/epeas'
 import * as P from '@/lib/epeas-prazos'
 import {
@@ -39,20 +40,16 @@ const TOM: Record<PrazoSituacao, 'danger' | 'warning' | 'success' | 'info' | 'ne
 
 const TIPOS_EVENTO = Object.keys(EVENTO_LABELS) as EventoTipo[]
 
-export function PainelPrazo({ contrato }: { contrato: EpeasContrato }) {
+export function PainelPrazo({
+  contrato,
+  ctx,
+}: {
+  contrato: EpeasContrato
+  ctx: P.ContextoPrazos
+}) {
   const { person } = useApp()
   const qc = useQueryClient()
   const contratoId = contrato.contrato_id
-
-  const feriadosQ = useQuery({ queryKey: ['feriados'], queryFn: P.getFeriados, staleTime: Infinity })
-  const eventosQ = useQuery({
-    queryKey: ['epeas-eventos', contratoId],
-    queryFn: () => P.getEventos(contratoId),
-  })
-  const suspQ = useQuery({
-    queryKey: ['epeas-suspensoes', contratoId],
-    queryFn: () => P.getSuspensoes(contratoId),
-  })
 
   const invalidar = () => {
     qc.invalidateQueries({ queryKey: ['epeas-eventos', contratoId] })
@@ -93,15 +90,11 @@ export function PainelPrazo({ contrato }: { contrato: EpeasContrato }) {
     onSuccess: () => { toast.success('Prazo retomado de onde parou.'); invalidar() },
   })
 
-  const ctx: P.ContextoPrazos = {
-    feriados: feriadosQ.data ?? new Set<string>(),
-    eventos: new Map([[contratoId, eventosQ.data ?? []]]),
-    suspensoes: new Map([[contratoId, suspQ.data ?? []]]),
-  }
-  const prazo = P.prazoDoContrato(contrato, ctx)
-  const etapa = P.prazoDaEtapa(contrato, ctx)
-  const pausaAberta = (suspQ.data ?? []).find((s) => s.retomada_em === null) ?? null
-  const eventos = eventosQ.data ?? []
+  const prazo = P.prazoContratual(contrato, ctx)
+  const sla = P.slaDaEtapa(contrato, ctx)
+  const suspensoes = ctx.suspensoes.get(contratoId) ?? []
+  const pausaAberta = suspensoes.find((s) => s.retomada_em === null) ?? null
+  const eventos = ctx.eventos.get(contratoId) ?? []
 
   return (
     <Card>
@@ -109,7 +102,7 @@ export function PainelPrazo({ contrato }: { contrato: EpeasContrato }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
-              <CalendarClock className="size-4" aria-hidden="true" /> Prazo
+              <CalendarClock className="size-4" aria-hidden="true" /> Prazo contratual
             </CardTitle>
             <CardDescription>{prazo.explicacao}</CardDescription>
           </div>
@@ -125,9 +118,15 @@ export function PainelPrazo({ contrato }: { contrato: EpeasContrato }) {
               ` · já empurrada por ${prazo.diasSuspensos} dia(s) útil(eis) de suspensão`}
           </p>
         )}
-        {etapa && contrato.etapa_servico && (
-          <p className="text-muted-foreground text-xs">
-            Etapa "{contrato.etapa_servico.nome}": {etapa.explicacao}
+        {/* O SLA interno aparece aqui embaixo, e nomeado, para que ninguém
+            confunda a estimativa da equipe com a promessa ao cliente. */}
+        {sla.situacao !== 'sem_prazo' && (
+          <p className="text-muted-foreground border-t pt-3 text-xs">
+            <span className="font-medium">
+              SLA interno · {P.SLA_LABELS[sla.situacao]}
+            </span>{' '}
+            — {contrato.etapa_servico?.nome ?? E.ETAPA_MACRO_LABELS[contrato.etapa_macro]}:{' '}
+            {sla.explicacao}
           </p>
         )}
 

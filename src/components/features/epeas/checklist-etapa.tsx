@@ -12,13 +12,16 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useApp } from '@/lib/app-context'
 import * as E from '@/lib/epeas'
+import * as P from '@/lib/epeas-prazos'
 
 export function ChecklistEtapa({
   contrato,
+  ctx,
   onAvancar,
   avancando,
 }: {
   contrato: E.EpeasContrato
+  ctx: P.ContextoPrazos
   onAvancar: () => void
   avancando: boolean
 }) {
@@ -48,7 +51,9 @@ export function ChecklistEtapa({
     onError: () => toast.error('Não foi possível atualizar o item.'),
   })
 
-  const status = E.statusEtapa(contrato)
+  // SLA da etapa macro, não da trilha: este cartão é sobre a etapa do fluxo
+  // em que o contrato está agora. Nunca diz "atrasado" — isso é do contratual.
+  const sla = P.slaEtapaMacro(contrato, ctx)
 
   return (
     <Card>
@@ -57,21 +62,21 @@ export function ChecklistEtapa({
           <div>
             <CardTitle className="text-base">{E.ETAPA_MACRO_LABELS[contrato.etapa_macro]}</CardTitle>
             <CardDescription>
-              {E.FASE_LABELS[E.faseDaEtapa(contrato.etapa_macro)]} · há {status.dias}{' '}
-              {status.dias === 1 ? 'dia' : 'dias'} nesta etapa
-              {status.saude === 'atrasado' && ` · passou do prazo de ${status.sla} dias`}
+              {E.FASE_LABELS[E.faseDaEtapa(contrato.etapa_macro)]}
+              {sla.decorridos !== null &&
+                ` · há ${sla.decorridos} ${sla.decorridos === 1 ? 'dia útil' : 'dias úteis'} nesta etapa`}
+              {sla.diasSuspensos > 0 && ` · ${sla.diasSuspensos}d não contaram por suspensão`}
             </CardDescription>
           </div>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-              status.saude === 'atrasado'
-                ? 'bg-status-danger-bg text-status-danger'
-                : status.saude === 'atencao'
-                  ? 'bg-status-warning-bg text-status-warning'
-                  : 'bg-accent text-accent-foreground'
+              sla.situacao === 'estourado' || sla.situacao === 'perto'
+                ? 'bg-status-warning-bg text-status-warning'
+                : 'bg-accent text-accent-foreground'
             }`}
+            title="SLA interno da etapa — estimativa nossa, não o prazo da cláusula"
           >
-            {status.saude === 'atrasado' ? 'Atrasado' : status.saude === 'atencao' ? 'No limite' : 'No prazo'}
+            SLA interno · {P.SLA_LABELS[sla.situacao]}
           </span>
         </div>
       </CardHeader>

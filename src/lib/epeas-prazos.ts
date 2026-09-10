@@ -11,6 +11,7 @@ import {
   calcularPrazo,
   type Evento,
   type EventoTipo,
+  type PrazoSituacao,
   type PrazoTipo,
   type ResultadoPrazo,
   type Suspensao,
@@ -142,8 +143,15 @@ export function temBaseline(contratoId: string, ctx: ContextoPrazos): boolean {
   return (ctx.eventos.get(contratoId) ?? []).some((e) => e.tipo === EVENTO_BASELINE)
 }
 
+// ---------------------------------------------------------------------------
+// Camada 1 — PRAZO CONTRATUAL
+//
+// O que está na cláusula. É o que gera responsabilidade perante o cliente e
+// o único que a tela pode chamar de "atrasado".
+// ---------------------------------------------------------------------------
+
 /** Prazo de entrega do contrato — o que o cliente cobra. */
-export function prazoDoContrato(
+export function prazoContratual(
   c: EpeasContrato,
   ctx: ContextoPrazos,
   hoje = hojeRecife(),
@@ -169,41 +177,125 @@ export function prazoDoContrato(
   })
 }
 
-/** Prazo da etapa de execução em que o contrato está. */
-export function prazoDaEtapa(
+// ---------------------------------------------------------------------------
+// Camada 2 — SLA INTERNO
+//
+// Estimativa nossa de quanto cada etapa deveria levar. Serve para a equipe
+// se cobrar; nunca é o que se promete ao cliente e nunca é chamado de
+// "atrasado" na tela — um contrato pode estar dentro do prazo contratual e
+// acima do SLA interno ao mesmo tempo, e os dois têm que aparecer separados.
+//
+// Roda pelo mesmo motor da camada 1: mesma conta de dia útil, mesma
+// suspensão. Se a bola está com o cliente, o relógio interno também para.
+// ---------------------------------------------------------------------------
+
+/**
+ * Dias ÚTEIS esperados em cada etapa do fluxo macro.
+ *
+ * Não vem da planilha — é constante de código, estimativa do processo
+ * interno. Até 09/09 os mesmos números eram lidos como dias CORRIDOS, o que
+ * fazia um contrato parado desde sexta virar "atrasado" na segunda por causa
+ * do fim de semana. `null` = etapa sem SLA (entregue não tem o que cobrar).
+ */
+export const SLA_ETAPA_MACRO: Record<string, number | null> = {
+  comercial_contrato_fechado: 2,
+  comercial_formulario_enviado: 5,
+  gestao_formulario_conferido: 2,
+  gestao_assessor_definido: 2,
+  gestao_contrato_elaboracao: 5,
+  // A bola está com o cliente para assinar. Quando passar disso, o caminho
+  // é suspender com justificativa, não deixar o contador correr.
+  gestao_contrato_assinatura: 5,
+  gestao_contrato_assinado: 2,
+  projetos_aguardando_alocacao: 3,
+  projetos_alocado: 2,
+  projetos_grupo_criado: 2,
+  projetos_em_execucao: 30,
+  projetos_entregue: null,
+}
+
+/** SLA da etapa do fluxo macro em que o contrato está. */
+export function slaEtapaMacro(
+  c: EpeasContrato,
+  ctx: ContextoPrazos,
+  hoje = hojeRecife(),
+): ResultadoPrazo {
+  return calcularPrazo({
+    config: {
+      tipo: 'dias_uteis_apos_evento',
+      diasUteis: SLA_ETAPA_MACRO[c.etapa_macro] ?? null,
+    },
+    eventos: ctx.eventos.get(c.contrato_id) ?? [],
+    suspensoes: ctx.suspensoes.get(c.contrato_id) ?? [],
+    feriados: ctx.feriados,
+    hoje,
+    // O sistema carimba a entrada na etapa, então aqui existe baseline
+    // mesmo para contrato migrado — é tempo parado na etapa, não prazo
+    // jurídico. Só o contratual depende de assinatura registrada.
+    baseline: (c.etapa_macro_em ?? c.created_at).slice(0, 10),
+  })
+}
+
+/** SLA da etapa da trilha de execução, quando o contrato está em execução. */
+export function slaEtapaServico(
   c: EpeasContrato,
   ctx: ContextoPrazos,
   hoje = hojeRecife(),
 ): ResultadoPrazo | null {
   if (!c.etapa_servico) return null
-  const eventos = ctx.eventos.get(c.contrato_id) ?? []
-  const suspensoes = ctx.suspensoes.get(c.contrato_id) ?? []
-
-  // Sem o marco zero do contrato, prazo de etapa também não vale: a
-  // entrada na etapa dos migrados é a data da migração.
-  if (!temBaseline(c.contrato_id, ctx)) {
-    return calcularPrazo({
-      config: { tipo: 'dias_uteis_apos_evento', diasUteis: c.etapa_servico.prazo_dias },
-      eventos,
-      suspensoes,
-      feriados: ctx.feriados,
-      hoje,
-      baseline: null,
-    })
-  }
-
   return calcularPrazo({
     config: {
       tipo: (c.etapa_servico.prazo_tipo ?? 'dias_uteis_apos_evento') as PrazoTipo,
       diasUteis: c.etapa_servico.prazo_dias,
       eventoGatilho: (c.etapa_servico.evento_gatilho ?? null) as EventoTipo | null,
     },
-    eventos,
-    suspensoes,
+    eventos: ctx.eventos.get(c.contrato_id) ?? [],
+    suspensoes: ctx.suspensoes.get(c.contrato_id) ?? [],
     feriados: ctx.feriados,
     hoje,
-    baseline: c.etapa_servico_em?.slice(0, 10) ?? c.etapa_macro_em.slice(0, 10),
+    baseline: (c.etapa_servico_em ?? c.etapa_macro_em ?? c.created_at).slice(0, 10),
   })
+}
+
+/**
+ * O SLA interno que vale agora: o da trilha quando existe, o do fluxo macro
+ * quando não. Um contrato em execução é cobrado pela etapa da trilha, que é
+ * mais específica; fora dela, pela etapa macro.
+ */
+export function slaDaEtapa(
+  c: EpeasContrato,
+  ctx: ContextoPrazos,
+  hoje = hojeRecife(),
+): ResultadoPrazo {
+  return slaEtapaServico(c, ctx, hoje) ?? slaEtapaMacro(c, ctx, hoje)
+}
+
+/**
+ * Rótulos do SLA interno.
+ *
+ * A palavra "atrasado" é reservada ao prazo contratual. Estourar a
+ * estimativa interna é "acima do previsto": informação para a equipe se
+ * organizar, não dívida com o cliente.
+ */
+export const SLA_LABELS: Record<PrazoSituacao, string> = {
+  estourado: 'Acima do previsto',
+  perto: 'No limite',
+  no_prazo: 'Em dia',
+  suspenso: 'Pausado',
+  aguardando_gatilho: 'Aguardando gatilho',
+  sem_baseline: 'Sem baseline',
+  sem_prazo: 'Sem SLA',
+}
+
+/** Tom visual do SLA — nunca vermelho: vermelho é do prazo contratual. */
+export const SLA_TOM: Record<PrazoSituacao, 'warning' | 'info' | 'neutral'> = {
+  estourado: 'warning',
+  perto: 'warning',
+  no_prazo: 'neutral',
+  suspenso: 'info',
+  aguardando_gatilho: 'info',
+  sem_baseline: 'neutral',
+  sem_prazo: 'neutral',
 }
 
 // ---------------------------------------------------------------------------
