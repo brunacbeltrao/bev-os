@@ -27,6 +27,7 @@ import {
   type SuspensaoMotivo,
 } from '@/lib/prazos'
 import { Vazio } from '@/components/features/epeas/epeas-shared'
+import { ClausulaPrazo } from '@/components/features/epeas/clausula-prazo'
 
 const TOM: Record<PrazoSituacao, 'danger' | 'warning' | 'success' | 'info' | 'neutral'> = {
   estourado: 'danger',
@@ -115,9 +116,11 @@ export function PainelPrazo({
           <p className="text-muted-foreground text-xs">
             Data-limite: <span className="font-medium">{prazo.dataPrevista}</span>
             {prazo.diasSuspensos > 0 &&
-              ` · já empurrada por ${prazo.diasSuspensos} dia(s) útil(eis) de suspensão`}
+              ` · já empurrada por ${prazo.diasSuspensos} dia(s) de suspensão`}
           </p>
         )}
+
+        <ClausulaPrazo contrato={contrato} />
         {/* O SLA interno aparece aqui embaixo, e nomeado, para que ninguém
             confunda a estimativa da equipe com a promessa ao cliente. */}
         {sla.situacao !== 'sem_prazo' && (

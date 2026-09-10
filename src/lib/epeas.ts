@@ -142,9 +142,14 @@ export interface EpeasContrato {
   csat_enviado_em: string | null
   termo_enviado_em: string | null
   nf_emitida_em: string | null
-  /** Motor de prazos (ver lib/prazos.ts). */
+  /** Prazo CONTRATUAL — a cláusula. Ver lib/prazos.ts e lib/epeas-prazos.ts. */
   prazo_tipo: string | null
-  prazo_dias_uteis: number | null
+  prazo_quantidade: number | null
+  prazo_unidade: string | null
+  /** Piso da faixa ("60 a 90"), só exibição. */
+  prazo_quantidade_min: number | null
+  /** Redação literal da cláusula — a prova de onde o número saiu. */
+  prazo_clausula: string | null
   prazo_evento_gatilho: string | null
   prazo_condicao: string | null
   created_at: string
@@ -184,7 +189,8 @@ const SELECT = `
   prazo_entrega, cliente_contato_nome, cliente_contato_email,
   cliente_contato_telefone, inpi_processo, inpi_classe, inpi_data_protocolo,
   csat_enviado_em, termo_enviado_em, nf_emitida_em,
-  prazo_tipo, prazo_dias_uteis, prazo_evento_gatilho, prazo_condicao,
+  prazo_tipo, prazo_quantidade, prazo_unidade, prazo_quantidade_min,
+  prazo_clausula, prazo_evento_gatilho, prazo_condicao,
   contrato:contratos!inner(
     id, cliente, nome_comercial, valor, data_fechamento, responsavel_id,
     servico:project_services(id, nome),
@@ -267,7 +273,10 @@ export type EpeasPatch = Partial<{
   inpi_classe: string | null
   inpi_data_protocolo: string | null
   prazo_tipo: string | null
-  prazo_dias_uteis: number | null
+  prazo_quantidade: number | null
+  prazo_unidade: string | null
+  prazo_quantidade_min: number | null
+  prazo_clausula: string | null
   prazo_evento_gatilho: string | null
   prazo_condicao: string | null
 }>

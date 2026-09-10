@@ -16,6 +16,7 @@ import {
   type ResultadoPrazo,
   type Suspensao,
   type SuspensaoMotivo,
+  type UnidadePrazo,
 } from './prazos'
 import type { EpeasContrato } from './epeas'
 
@@ -158,14 +159,16 @@ export function prazoContratual(
 ): ResultadoPrazo {
   const eventos = ctx.eventos.get(c.contrato_id) ?? []
   const suspensoes = ctx.suspensoes.get(c.contrato_id) ?? []
-  const tipo = (c.prazo_tipo ?? 'dias_uteis_apos_evento') as PrazoTipo
+  const tipo = (c.prazo_tipo ?? 'apos_evento') as PrazoTipo
   const baseline = eventos.find((e) => e.tipo === EVENTO_BASELINE)?.ocorrido_em ?? null
 
   return calcularPrazo({
     config: {
       tipo,
       dataFixa: c.prazo_entrega,
-      diasUteis: c.prazo_dias_uteis,
+      quantidade: c.prazo_quantidade,
+      unidade: (c.prazo_unidade ?? 'dias_uteis') as UnidadePrazo,
+      quantidadeMin: c.prazo_quantidade_min,
       eventoGatilho: c.prazo_evento_gatilho as EventoTipo | null,
       condicao: c.prazo_condicao,
     },
@@ -222,8 +225,9 @@ export function slaEtapaMacro(
 ): ResultadoPrazo {
   return calcularPrazo({
     config: {
-      tipo: 'dias_uteis_apos_evento',
-      diasUteis: SLA_ETAPA_MACRO[c.etapa_macro] ?? null,
+      tipo: 'apos_evento',
+      quantidade: SLA_ETAPA_MACRO[c.etapa_macro] ?? null,
+      unidade: 'dias_uteis',
     },
     eventos: ctx.eventos.get(c.contrato_id) ?? [],
     suspensoes: ctx.suspensoes.get(c.contrato_id) ?? [],
@@ -245,8 +249,10 @@ export function slaEtapaServico(
   if (!c.etapa_servico) return null
   return calcularPrazo({
     config: {
-      tipo: (c.etapa_servico.prazo_tipo ?? 'dias_uteis_apos_evento') as PrazoTipo,
-      diasUteis: c.etapa_servico.prazo_dias,
+      tipo: (c.etapa_servico.prazo_tipo ?? 'apos_evento') as PrazoTipo,
+      quantidade: c.etapa_servico.prazo_dias,
+      // A unidade por etapa entra no próximo passo; até lá segue dia útil.
+      unidade: 'dias_uteis',
       eventoGatilho: (c.etapa_servico.evento_gatilho ?? null) as EventoTipo | null,
     },
     eventos: ctx.eventos.get(c.contrato_id) ?? [],

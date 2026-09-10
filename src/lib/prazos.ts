@@ -22,7 +22,36 @@
  * 8 — a mesma classe de erro que já apareceu na Home.
  */
 
-export type PrazoTipo = 'data_fixa' | 'dias_uteis_apos_evento' | 'condicionado'
+export type PrazoTipo = 'data_fixa' | 'apos_evento' | 'condicionado'
+
+/**
+ * Unidade em que a cláusula (ou o SLA) está escrita.
+ *
+ * Não dá para ter uma regra global: depende de quem executa. Etapa tocada
+ * pela nossa equipe corre em dia útil; espera por órgão público (INPI, Junta
+ * Comercial, Receita) é calendário — os 60 e 90 dias do Registro de Marca
+ * lidos como dias úteis viram 12 e 18 semanas em vez de 2 e 3 meses.
+ */
+export type UnidadePrazo = 'dias_uteis' | 'dias_corridos' | 'meses'
+
+/** Em que se conta decorrido e restante. Mês vira calendário na contagem. */
+export type ContagemPrazo = 'dias_uteis' | 'dias_corridos'
+
+export const PRAZO_TIPO_LABELS: Record<PrazoTipo, string> = {
+  apos_evento: 'Contado a partir de um evento',
+  data_fixa: 'Data fixa na cláusula',
+  condicionado: 'Depende de terceiro (não corre por nossa conta)',
+}
+
+export const UNIDADE_LABELS: Record<UnidadePrazo, string> = {
+  dias_uteis: 'dias úteis',
+  dias_corridos: 'dias corridos',
+  meses: 'meses',
+}
+
+export function contagemDe(u: UnidadePrazo): ContagemPrazo {
+  return u === 'dias_uteis' ? 'dias_uteis' : 'dias_corridos'
+}
 
 export type EventoTipo =
   | 'assinatura'
@@ -66,9 +95,18 @@ export interface ConfigPrazo {
   tipo: PrazoTipo
   /** data_fixa: a data da cláusula. */
   dataFixa?: string | null
-  /** dias_uteis_apos_evento: quantos dias úteis. */
-  diasUteis?: number | null
-  /** dias_uteis_apos_evento: de qual evento parte. Nulo = parte do baseline informado. */
+  /**
+   * apos_evento: quanto, na unidade abaixo.
+   *
+   * Quando a cláusula traz faixa ("60 a 90 dias úteis"), aqui vai o teto —
+   * é ele que gera responsabilidade. O piso é só previsão (`quantidadeMin`).
+   */
+  quantidade?: number | null
+  /** Como contar. Ausente = dias úteis, que é o caso mais comum. */
+  unidade?: UnidadePrazo | null
+  /** Piso da faixa, apenas para a tela mostrar "60 a 90". Não entra na conta. */
+  quantidadeMin?: number | null
+  /** apos_evento: de qual evento parte. Nulo = parte do baseline informado. */
   eventoGatilho?: EventoTipo | null
   /** condicionado: o que se está esperando, em texto, para a tela mostrar. */
   condicao?: string | null
@@ -87,13 +125,15 @@ export interface ResultadoPrazo {
   situacao: PrazoSituacao
   /** Frase pronta para a tela — o motivo, não só o rótulo. */
   explicacao: string
-  /** Dias úteis já consumidos, descontadas as suspensões. Null quando não corre. */
+  /** Dias já consumidos, descontadas as suspensões. Null quando não corre. */
   decorridos: number | null
-  /** Negativo = estourou por tantos dias úteis. */
+  /** Negativo = estourou por tantos dias. */
   restantes: number | null
+  /** Em que unidade `decorridos` e `restantes` estão. */
+  contagem: ContagemPrazo
   /** Data-limite já empurrada pelas suspensões. */
   dataPrevista: string | null
-  /** Dias úteis congelados no total. */
+  /** Dias congelados no total, na unidade de contagem. */
   diasSuspensos: number
   suspensaoAtiva: Suspensao | null
   /** Só conta como atraso quando isto é verdade. */
@@ -160,17 +200,63 @@ export function somarDiasUteis(
   return paraIso(cursor)
 }
 
+/** Dias corridos em (inicio, fim]. Zero quando o fim vem antes. */
+export function diasCorridosEntre(inicio: string, fim: string): number {
+  const d = (paraNumero(fim) - paraNumero(inicio)) / DIA_MS
+  return d > 0 ? d : 0
+}
+
+export function somarDiasCorridos(inicio: string, n: number): string {
+  return paraIso(paraNumero(inicio) + n * DIA_MS)
+}
+
 /**
- * Dias úteis congelados dentro da janela (depois, ate].
+ * Avança N meses de calendário, prendendo ao último dia quando o mês de
+ * destino é mais curto: 31/01 + 1 mês é 28/02, não 03/03.
+ */
+export function somarMeses(inicio: string, n: number): string {
+  const [a, m, d] = inicio.slice(0, 10).split('-').map(Number)
+  const bruto = m - 1 + n
+  const ano = a + Math.floor(bruto / 12)
+  const mes = ((bruto % 12) + 12) % 12
+  const ultimoDia = new Date(Date.UTC(ano, mes + 1, 0)).getUTCDate()
+  return paraIso(Date.UTC(ano, mes, Math.min(d, ultimoDia)))
+}
+
+/**
+ * Prazo que vence em dia não útil prorroga para o próximo dia útil.
+ *
+ * Vale para prazo em dias corridos e em meses; em dias úteis o vencimento
+ * já cai em dia útil por construção.
+ */
+export function proximoDiaUtil(iso: string, feriados: ReadonlySet<string>): string {
+  let cursor = paraNumero(iso)
+  while (!ehDiaUtil(paraIso(cursor), feriados)) cursor += DIA_MS
+  return paraIso(cursor)
+}
+
+/** Conta o intervalo (de, ate] na unidade pedida. */
+export function contarEntre(
+  de: string,
+  ate: string,
+  contagem: ContagemPrazo,
+  feriados: ReadonlySet<string>,
+): number {
+  return contagem === 'dias_uteis' ? diasUteisEntre(de, ate, feriados) : diasCorridosEntre(de, ate)
+}
+
+/**
+ * Dias congelados dentro da janela (depois, ate], na unidade de contagem.
  *
  * Recorta cada suspensão à janela do prazo: pausa aberta antes do evento
  * baseline, ou depois de hoje, não pode descontar dia que o prazo nem
  * chegou a consumir.
  */
-export function diasUteisSuspensos(
+export function suspensosNaJanela(
   suspensoes: readonly Suspensao[],
   depois: string,
   ate: string,
+  contagem: ContagemPrazo,
   feriados: ReadonlySet<string>,
 ): number {
   let total = 0
@@ -180,9 +266,19 @@ export function diasUteisSuspensos(
     const de = paraNumero(ini) > paraNumero(depois) ? ini : depois
     const a = paraNumero(fim) < paraNumero(ate) ? fim : ate
     if (paraNumero(a) <= paraNumero(de)) continue
-    total += diasUteisEntre(de, a, feriados)
+    total += contarEntre(de, a, contagem, feriados)
   }
   return total
+}
+
+/** Atalho para o caso mais comum. */
+export function diasUteisSuspensos(
+  suspensoes: readonly Suspensao[],
+  depois: string,
+  ate: string,
+  feriados: ReadonlySet<string>,
+): number {
+  return suspensosNaJanela(suspensoes, depois, ate, 'dias_uteis', feriados)
 }
 
 export function suspensaoAberta(suspensoes: readonly Suspensao[]): Suspensao | null {
@@ -224,15 +320,35 @@ const SEM_PRAZO: ResultadoPrazo = {
   explicacao: 'Sem prazo definido.',
   decorridos: null,
   restantes: null,
+  contagem: 'dias_uteis',
   dataPrevista: null,
   diasSuspensos: 0,
   suspensaoAtiva: null,
   atrasado: false,
 }
 
+/**
+ * Data-limite a partir do início, na unidade da cláusula, já empurrada
+ * pelos dias congelados em suspensão.
+ */
+function vencimentoDe(
+  inicio: string,
+  quantidade: number,
+  unidade: UnidadePrazo,
+  congelados: number,
+  feriados: ReadonlySet<string>,
+): string {
+  if (unidade === 'dias_uteis') return somarDiasUteis(inicio, quantidade + congelados, feriados)
+  const base =
+    unidade === 'meses' ? somarMeses(inicio, quantidade) : somarDiasCorridos(inicio, quantidade)
+  return proximoDiaUtil(somarDiasCorridos(base, congelados), feriados)
+}
+
 export function calcularPrazo(entrada: EntradaPrazo): ResultadoPrazo {
   const { config, eventos, suspensoes, feriados, hoje } = entrada
   const pausa = suspensaoAberta(suspensoes)
+  const unidade: UnidadePrazo = config.unidade ?? 'dias_uteis'
+  const contagem = contagemDe(unidade)
 
   // Condicionado nunca atrasa: o gatilho é de fora, e cobrar prazo de quem
   // não pode agir é o erro que este motor existe para não repetir.
@@ -247,9 +363,11 @@ export function calcularPrazo(entrada: EntradaPrazo): ResultadoPrazo {
     }
   }
 
-  // De onde o prazo parte.
+  // De onde o prazo parte, e até onde vai.
   let inicio: string | null = null
-  let prazo: number | null = null
+  let alvo: string
+  let congelados = 0
+  let detalhe: string
 
   if (config.tipo === 'data_fixa') {
     if (!config.dataFixa) {
@@ -260,10 +378,11 @@ export function calcularPrazo(entrada: EntradaPrazo): ResultadoPrazo {
         suspensaoAtiva: pausa,
       }
     }
+    // A data da cláusula é a data da cláusula: suspensão não a move.
+    alvo = config.dataFixa.slice(0, 10)
+    detalhe = `Data de cláusula: ${alvo}.`
   } else {
-    // dias_uteis_apos_evento
-    if (config.diasUteis == null) return { ...SEM_PRAZO, suspensaoAtiva: pausa }
-    prazo = config.diasUteis
+    if (config.quantidade == null) return { ...SEM_PRAZO, suspensaoAtiva: pausa }
 
     if (config.eventoGatilho) {
       const ev = primeiroEvento(eventos, config.eventoGatilho)
@@ -287,90 +406,64 @@ export function calcularPrazo(entrada: EntradaPrazo): ResultadoPrazo {
       }
       inicio = entrada.baseline.slice(0, 10)
     }
+
+    // Suspensões congelam o contador. A janela vai do início até hoje.
+    congelados = suspensosNaJanela(suspensoes, inicio, hoje, contagem, feriados)
+    alvo = vencimentoDe(inicio, config.quantidade, unidade, congelados, feriados)
+
+    const faixa =
+      config.quantidadeMin != null && config.quantidadeMin !== config.quantidade
+        ? `${config.quantidadeMin} a ${config.quantidade}`
+        : `${config.quantidade}`
+    const consumido = Math.max(0, contarEntre(inicio, hoje, contagem, feriados) - congelados)
+    detalhe =
+      `Prazo de ${faixa} ${UNIDADE_LABELS[unidade]}. ` +
+      `Consumidos ${consumido} ${UNIDADE_LABELS[contagem]}.` +
+      (congelados > 0 ? ` ${congelados} não contaram por suspensão.` : '')
   }
 
-  // Suspensões congelam o contador. A janela vai do início até hoje.
-  const janelaDe = config.tipo === 'data_fixa' ? hoje : inicio!
-  const congelados =
-    config.tipo === 'data_fixa'
-      ? 0
-      : diasUteisSuspensos(suspensoes, janelaDe, hoje, feriados)
-
-  if (config.tipo === 'data_fixa') {
-    const alvo = config.dataFixa!.slice(0, 10)
-    const restantes =
-      paraNumero(alvo) >= paraNumero(hoje)
-        ? diasUteisEntre(hoje, alvo, feriados)
-        : -diasUteisEntre(alvo, hoje, feriados)
-    if (pausa) {
-      return {
-        situacao: 'suspenso',
-        explicacao: `Prazo suspenso — ${SUSPENSAO_LABELS[pausa.motivo].toLowerCase()}. Data de cláusula: ${alvo}.`,
-        decorridos: null,
-        restantes,
-        dataPrevista: alvo,
-        diasSuspensos: 0,
-        suspensaoAtiva: pausa,
-        atrasado: false,
-      }
-    }
-    return montar(restantes, null, alvo, 0, null, `Data de cláusula: ${alvo}.`)
-  }
-
-  const decorridos = Math.max(0, diasUteisEntre(inicio!, hoje, feriados) - congelados)
-  const restantes = prazo! - decorridos
-  const dataPrevista = somarDiasUteis(inicio!, prazo! + congelados, feriados)
+  // Decorrido e restante saem do mesmo par (início, alvo), então sempre
+  // fecham entre si — foi somar os dois por caminhos diferentes que fez a
+  // tela mostrar número que não batia com a data.
+  const decorridos =
+    inicio === null ? null : Math.max(0, contarEntre(inicio, hoje, contagem, feriados) - congelados)
+  const restantes =
+    paraNumero(alvo) >= paraNumero(hoje)
+      ? contarEntre(hoje, alvo, contagem, feriados)
+      : -contarEntre(alvo, hoje, contagem, feriados)
 
   if (pausa) {
     return {
       situacao: 'suspenso',
-      explicacao: `Prazo congelado — ${SUSPENSAO_LABELS[pausa.motivo].toLowerCase()}. Consumidos ${decorridos} de ${prazo} dias úteis.`,
+      explicacao: `Prazo congelado — ${SUSPENSAO_LABELS[pausa.motivo].toLowerCase()}. ${detalhe}`,
       decorridos,
       restantes,
-      dataPrevista,
+      contagem,
+      dataPrevista: alvo,
       diasSuspensos: congelados,
       suspensaoAtiva: pausa,
       atrasado: false,
     }
   }
 
-  const sufixo =
-    congelados > 0
-      ? ` ${congelados} dia(s) útil(eis) não contaram por suspensão.`
-      : ''
-  return montar(
-    restantes,
-    decorridos,
-    dataPrevista,
-    congelados,
-    null,
-    `Consumidos ${decorridos} de ${prazo} dias úteis.${sufixo}`,
-  )
-}
-
-function montar(
-  restantes: number,
-  decorridos: number | null,
-  dataPrevista: string,
-  diasSuspensos: number,
-  pausa: Suspensao | null,
-  detalhe: string,
-): ResultadoPrazo {
+  const unidadeRestante = UNIDADE_LABELS[contagem]
   const situacao: PrazoSituacao =
     restantes < 0 ? 'estourado' : restantes <= 1 ? 'perto' : 'no_prazo'
   const explicacao =
     restantes < 0
-      ? `Estourou há ${Math.abs(restantes)} dia(s) útil(eis). ${detalhe}`
+      ? `Estourou há ${Math.abs(restantes)} ${unidadeRestante}. ${detalhe}`
       : restantes === 0
         ? `Vence hoje. ${detalhe}`
-        : `Faltam ${restantes} dia(s) útil(eis). ${detalhe}`
+        : `Faltam ${restantes} ${unidadeRestante}. ${detalhe}`
+
   return {
     situacao,
     explicacao,
     decorridos,
     restantes,
-    dataPrevista,
-    diasSuspensos,
+    contagem,
+    dataPrevista: alvo,
+    diasSuspensos: congelados,
     suspensaoAtiva: pausa,
     atrasado: situacao === 'estourado',
   }

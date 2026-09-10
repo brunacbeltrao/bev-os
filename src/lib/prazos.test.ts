@@ -16,6 +16,7 @@ import {
   diasUteisSuspensos,
   ehDiaUtil,
   somarDiasUteis,
+  somarMeses,
   type Evento,
   type Suspensao,
 } from './prazos'
@@ -97,7 +98,7 @@ describe('prazo condicionado', () => {
 describe('sem baseline', () => {
   it('contrato migrado sem evento não conta como atrasado', () => {
     const r = calcularPrazo({
-      config: { tipo: 'dias_uteis_apos_evento', diasUteis: 5 },
+      config: { tipo: 'apos_evento', quantidade: 5 },
       eventos: [],
       suspensoes: [],
       feriados: FERIADOS,
@@ -111,7 +112,7 @@ describe('sem baseline', () => {
 
   it('gatilho não registrado não conta como atrasado, e diz o que falta', () => {
     const r = calcularPrazo({
-      config: { tipo: 'dias_uteis_apos_evento', diasUteis: 10, eventoGatilho: 'protocolo_inpi' },
+      config: { tipo: 'apos_evento', quantidade: 10, eventoGatilho: 'protocolo_inpi' },
       eventos: [{ tipo: 'assinatura', ocorrido_em: '2026-01-05' }],
       suspensoes: [],
       feriados: FERIADOS,
@@ -125,7 +126,7 @@ describe('sem baseline', () => {
   it('com o evento registrado, o prazo passa a correr', () => {
     const eventos: Evento[] = [{ tipo: 'protocolo_inpi', ocorrido_em: '2026-09-01' }]
     const r = calcularPrazo({
-      config: { tipo: 'dias_uteis_apos_evento', diasUteis: 10, eventoGatilho: 'protocolo_inpi' },
+      config: { tipo: 'apos_evento', quantidade: 10, eventoGatilho: 'protocolo_inpi' },
       eventos,
       suspensoes: [],
       feriados: FERIADOS,
@@ -140,7 +141,7 @@ describe('sem baseline', () => {
 
 // ---------------------------------------------------------------------------
 describe('suspensão', () => {
-  const config = { tipo: 'dias_uteis_apos_evento' as const, diasUteis: 10 }
+  const config = { tipo: 'apos_evento' as const, quantidade: 10 }
 
   it('pausa aberta congela: o contador não anda com o tempo', () => {
     const suspensoes: Suspensao[] = [
@@ -243,7 +244,7 @@ describe('suspensão', () => {
 describe('atraso de verdade', () => {
   it('estoura só quando os dias úteis realmente passaram', () => {
     const r = calcularPrazo({
-      config: { tipo: 'dias_uteis_apos_evento', diasUteis: 3 },
+      config: { tipo: 'apos_evento', quantidade: 3 },
       eventos: [],
       suspensoes: [],
       feriados: FERIADOS,
@@ -295,7 +296,7 @@ describe('atraso de verdade', () => {
 
   it('suspenso nunca é atraso, mesmo com o prazo já vencido', () => {
     const r = calcularPrazo({
-      config: { tipo: 'dias_uteis_apos_evento', diasUteis: 1 },
+      config: { tipo: 'apos_evento', quantidade: 1 },
       eventos: [],
       suspensoes: [
         { motivo: 'aguardando_orgao_publico', iniciada_em: '2026-09-08', retomada_em: null },
@@ -307,6 +308,123 @@ describe('atraso de verdade', () => {
     expect(r.situacao).toBe('suspenso')
     expect(r.atrasado).toBe(false)
     expect(r.restantes! < 0).toBe(true) // já devia ter vencido, mas está congelado
+  })
+})
+
+// ---------------------------------------------------------------------------
+describe('unidade do prazo', () => {
+  const base = { eventos: [], suspensoes: [], feriados: FERIADOS, baseline: '2026-09-01' }
+
+  it('60 dias corridos e 60 dias úteis são prazos diferentes, e por muito', () => {
+    // O caso concreto do Registro de Marca: a espera pelo exame do INPI é
+    // calendário. Lida como dia útil, "60 dias" vira quase 3 meses.
+    const corridos = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 60, unidade: 'dias_corridos' },
+      hoje: '2026-09-10',
+    })
+    const uteis = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 60, unidade: 'dias_uteis' },
+      hoje: '2026-09-10',
+    })
+    expect(corridos.dataPrevista).toBe('2026-11-02') // 31/10 é sábado, prorroga
+    expect(uteis.dataPrevista).toBe('2026-11-25')
+  })
+
+  it('prazo em meses acompanha o calendário, não 30 dias', () => {
+    const r = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 2, unidade: 'meses' },
+      hoje: '2026-09-10',
+    })
+    // 01/11 é domingo — prorroga para segunda.
+    expect(r.dataPrevista).toBe('2026-11-02')
+    expect(r.explicacao).toContain('2 meses')
+  })
+
+  it('mês curto prende no último dia em vez de vazar para o mês seguinte', () => {
+    expect(somarMeses('2026-01-31', 1)).toBe('2026-02-28')
+    expect(somarMeses('2026-01-31', 13)).toBe('2027-02-28')
+  })
+
+  it('vencimento em dia não útil prorroga para o próximo dia útil', () => {
+    // 04/09 + 30 corridos = 04/10, domingo.
+    const r = calcularPrazo({
+      ...base,
+      baseline: '2026-09-04',
+      config: { tipo: 'apos_evento', quantidade: 30, unidade: 'dias_corridos' },
+      hoje: '2026-09-10',
+    })
+    expect(r.dataPrevista).toBe('2026-10-05')
+  })
+
+  it('prazo corrido conta decorrido em dias corridos, não úteis', () => {
+    const r = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 60, unidade: 'dias_corridos' },
+      hoje: '2026-09-25',
+    })
+    expect(r.contagem).toBe('dias_corridos')
+    expect(r.decorridos).toBe(24) // 01/09 a 25/09, calendário
+  })
+
+  it('a pausa congela na unidade do prazo — corrido congela dia corrido', () => {
+    const r = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 60, unidade: 'dias_corridos' },
+      suspensoes: [
+        { motivo: 'aguardando_orgao_publico', iniciada_em: '2026-09-05', retomada_em: '2026-09-15' },
+      ],
+      hoje: '2026-09-25',
+    })
+    expect(r.diasSuspensos).toBe(10) // dez dias de calendário, fim de semana incluso
+    expect(r.decorridos).toBe(14)
+  })
+
+  it('ausência de unidade continua significando dias úteis', () => {
+    const semUnidade = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 10 },
+      hoje: '2026-09-10',
+    })
+    const comUnidade = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: 10, unidade: 'dias_uteis' },
+      hoje: '2026-09-10',
+    })
+    expect(semUnidade.dataPrevista).toBe(comUnidade.dataPrevista)
+    expect(semUnidade.contagem).toBe('dias_uteis')
+  })
+
+  it('faixa de prazo cobra o teto e mostra os dois números', () => {
+    // "60 a 90 dias úteis": o piso é previsão, o teto é o que responsabiliza.
+    const r = calcularPrazo({
+      ...base,
+      config: {
+        tipo: 'apos_evento',
+        quantidade: 90,
+        quantidadeMin: 60,
+        unidade: 'dias_corridos',
+      },
+      hoje: '2026-09-10',
+    })
+    expect(r.explicacao).toContain('60 a 90 dias corridos')
+    expect(r.dataPrevista).toBe('2026-11-30')
+    expect(r.atrasado).toBe(false)
+  })
+
+  it('decorrido e restante sempre fecham com a data prevista', () => {
+    // Os dois saem do mesmo par (início, alvo). Se um dia divergirem, a tela
+    // volta a mostrar número que não bate com a data ao lado.
+    for (const unidade of ['dias_uteis', 'dias_corridos'] as const) {
+      const r = calcularPrazo({
+        ...base,
+        config: { tipo: 'apos_evento', quantidade: 20, unidade },
+        hoje: '2026-09-10',
+      })
+      expect(r.decorridos! + r.restantes!).toBe(20)
+    }
   })
 })
 
