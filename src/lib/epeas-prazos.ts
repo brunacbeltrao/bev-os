@@ -250,9 +250,8 @@ export function slaEtapaServico(
   return calcularPrazo({
     config: {
       tipo: (c.etapa_servico.prazo_tipo ?? 'apos_evento') as PrazoTipo,
-      quantidade: c.etapa_servico.prazo_dias,
-      // A unidade por etapa entra no próximo passo; até lá segue dia útil.
-      unidade: 'dias_uteis',
+      quantidade: c.etapa_servico.prazo_quantidade,
+      unidade: c.etapa_servico.unidade_prazo as UnidadePrazo,
       eventoGatilho: (c.etapa_servico.evento_gatilho ?? null) as EventoTipo | null,
     },
     eventos: ctx.eventos.get(c.contrato_id) ?? [],

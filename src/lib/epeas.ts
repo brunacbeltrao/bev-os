@@ -81,19 +81,27 @@ export interface ServicoEtapa {
   servico_id: string
   ordem: number
   nome: string
-  /** Dias ÚTEIS — era dias corridos até o motor de prazos de 09/09. */
-  prazo_dias: number
+  /** SLA INTERNO da etapa, na unidade abaixo. Não é o prazo do cliente. */
+  prazo_quantidade: number
+  /**
+   * Dias úteis quando quem executa somos nós; dias corridos quando a etapa
+   * é espera por órgão público, que não conhece o nosso calendário.
+   */
+  unidade_prazo: string
   prazo_tipo: string | null
   /** Nulo = o prazo conta da entrada na etapa. */
   evento_gatilho: string | null
 }
+
+const SERVICO_ETAPA_SELECT =
+  'id, servico_id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho'
 
 /** Trilha de um serviço, em ordem. Vazia = serviço sem trilha configurada. */
 export async function getServicoEtapas(servicoId: string | null): Promise<ServicoEtapa[]> {
   if (!servicoId) return []
   const { data, error } = await supabase
     .from('servico_etapas')
-    .select('id, servico_id, ordem, nome, prazo_dias, prazo_tipo, evento_gatilho')
+    .select(SERVICO_ETAPA_SELECT)
     .eq('servico_id', servicoId)
     .order('ordem')
   if (error) throw error
@@ -166,14 +174,7 @@ export interface EpeasContrato {
     servico: { id: string; nome: string } | null
     responsavel: { id: string; nome: string } | null
   }
-  etapa_servico: {
-    id: string
-    ordem: number
-    nome: string
-    prazo_dias: number
-    prazo_tipo: string | null
-    evento_gatilho: string | null
-  } | null
+  etapa_servico: Omit<ServicoEtapa, 'servico_id'> | null
   nucleo: { id: string; nome: string; slug: string } | null
   gestao_responsavel: { id: string; nome: string } | null
   gerente_nucleo: { id: string; nome: string } | null
@@ -196,7 +197,7 @@ const SELECT = `
     servico:project_services(id, nome),
     responsavel:people!contratos_responsavel_id_fkey(id, nome)
   ),
-  etapa_servico:servico_etapas(id, ordem, nome, prazo_dias, prazo_tipo, evento_gatilho),
+  etapa_servico:servico_etapas(id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho),
   nucleo:project_nucleos(id, nome, slug),
   gestao_responsavel:people!epeas_lifecycle_gestao_responsavel_id_fkey(id, nome),
   gerente_nucleo:people!epeas_lifecycle_gerente_nucleo_id_fkey(id, nome),

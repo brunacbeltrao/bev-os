@@ -21,6 +21,7 @@ import { useApp } from '@/lib/app-context'
 import { getDirectory } from '@/lib/org'
 import * as E from '@/lib/epeas'
 import * as P from '@/lib/epeas-prazos'
+import { UNIDADE_LABELS, type UnidadePrazo } from '@/lib/prazos'
 import { supabase } from '@/lib/supabase'
 import { fmtBRLCurto, fmtData, LinkExterno, Vazio } from '@/components/features/epeas/epeas-shared'
 import { Conversa } from '@/components/features/epeas/conversa'
@@ -265,7 +266,8 @@ function ContratoEpeasPage() {
                             {etapa.nome}
                           </span>
                           <span className="text-muted-foreground block text-xs">
-                            SLA interno de {etapa.prazo_dias} dias úteis
+                            SLA interno de {etapa.prazo_quantidade}{' '}
+                            {UNIDADE_LABELS[etapa.unidade_prazo as UnidadePrazo]}
                           </span>
                         </span>
                         {atual && slaExecucao && (
