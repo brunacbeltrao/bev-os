@@ -494,65 +494,44 @@ export function rotuloEtapa(campo: string, valor: string | null): string {
 // Checklist por etapa — define o que é "pronto"
 // ===========================================================================
 
+/**
+ * Item do template, agora vindo de `checklist_itens`.
+ *
+ * O template era uma constante aqui, invisível para o banco: nada impedia
+ * gravar um item que não existe, ou um item de outra etapa. Com a tabela e
+ * a FK composta, mudar o processo virou mexer numa linha em vez de num
+ * deploy — mesmo caminho que a trilha de serviços já tinha seguido.
+ */
 export interface ItemChecklist {
-  key: string
+  id: string
+  etapa: EtapaMacro
+  item_key: string
   label: string
   /** trava o avanço da etapa enquanto não estiver feito */
   obrigatorio: boolean
+  ordem: number
 }
 
-/**
- * O template vive no código porque muda com o processo, não com o dado.
- * Sem isso, "avançar etapa" é um botão sem contrato de significado — cada
- * pessoa decide sozinha o que considera pronto.
- */
-export const CHECKLIST: Partial<Record<EtapaMacro, ItemChecklist[]>> = {
-  comercial_contrato_fechado: [
-    { key: 'dados_cliente', label: 'Dados do cliente conferidos', obrigatorio: true },
-    { key: 'valor_servico', label: 'Valor e serviço confirmados com o cliente', obrigatorio: true },
-  ],
-  comercial_formulario_enviado: [
-    { key: 'form_enviado', label: 'Formulário enviado ao cliente', obrigatorio: true },
-    { key: 'form_link', label: 'Link do formulário registrado aqui', obrigatorio: true },
-  ],
-  gestao_formulario_conferido: [
-    { key: 'form_preenchido', label: 'Cliente preencheu o formulário', obrigatorio: true },
-    { key: 'dados_completos', label: 'Dados suficientes para redigir o contrato', obrigatorio: true },
-  ],
-  gestao_assessor_definido: [
-    { key: 'assessor', label: 'Assessor de Gestão definido', obrigatorio: true },
-  ],
-  gestao_contrato_elaboracao: [
-    { key: 'minuta', label: 'Minuta redigida', obrigatorio: true },
-    { key: 'revisao', label: 'Revisada por segunda pessoa', obrigatorio: false },
-  ],
-  gestao_contrato_assinatura: [
-    { key: 'autentique', label: 'Enviado pelo Autentique', obrigatorio: true },
-    { key: 'link_autentique', label: 'Link do Autentique registrado aqui', obrigatorio: true },
-  ],
-  gestao_contrato_assinado: [
-    { key: 'assinado_cliente', label: 'Cliente assinou', obrigatorio: true },
-    { key: 'assinado_bev', label: 'Bevilaqua assinou', obrigatorio: true },
-  ],
-  projetos_aguardando_alocacao: [
-    { key: 'nucleo', label: 'Núcleo escolhido', obrigatorio: true },
-  ],
-  projetos_alocado: [
-    { key: 'time', label: 'Gerente e assessores definidos', obrigatorio: true },
-    { key: 'kickoff', label: 'Kickoff combinado com o time', obrigatorio: false },
-  ],
-  projetos_grupo_criado: [
-    { key: 'grupo', label: 'Grupo de WhatsApp criado com o cliente', obrigatorio: true },
-    { key: 'grupo_link', label: 'Link do grupo registrado aqui', obrigatorio: true },
-  ],
-  projetos_em_execucao: [
-    { key: 'entrega', label: 'Entregável enviado ao cliente', obrigatorio: true },
-    { key: 'aceite', label: 'Cliente confirmou o recebimento', obrigatorio: false },
-  ],
+/** Template inteiro, agrupado por etapa. São 20 itens — cabe numa consulta. */
+export async function getChecklistTemplate(): Promise<Map<EtapaMacro, ItemChecklist[]>> {
+  const { data, error } = await supabase
+    .from('checklist_itens')
+    .select('id, etapa, item_key, label, obrigatorio, ordem')
+    .order('etapa')
+    .order('ordem')
+  if (error) throw error
+
+  const porEtapa = new Map<EtapaMacro, ItemChecklist[]>()
+  for (const i of (data ?? []) as ItemChecklist[]) {
+    const lista = porEtapa.get(i.etapa) ?? []
+    lista.push(i)
+    porEtapa.set(i.etapa, lista)
+  }
+  return porEtapa
 }
 
 export interface ChecklistFeito {
-  etapa: string
+  etapa: EtapaMacro
   item_key: string
   feito_em: string
   feito_por: { id: string; nome: string } | null
@@ -567,14 +546,19 @@ export async function getChecklist(contratoId: string): Promise<ChecklistFeito[]
   return (data ?? []) as unknown as ChecklistFeito[]
 }
 
-export async function marcarItem(contratoId: string, etapa: string, itemKey: string, pessoaId: string) {
+export async function marcarItem(
+  contratoId: string,
+  etapa: EtapaMacro,
+  itemKey: string,
+  pessoaId: string,
+) {
   const { error } = await supabase
     .from('epeas_checklist_done')
     .insert({ contrato_id: contratoId, etapa, item_key: itemKey, feito_por: pessoaId })
   if (error) throw error
 }
 
-export async function desmarcarItem(contratoId: string, etapa: string, itemKey: string) {
+export async function desmarcarItem(contratoId: string, etapa: EtapaMacro, itemKey: string) {
   const { error } = await supabase
     .from('epeas_checklist_done')
     .delete()
@@ -587,11 +571,11 @@ export async function desmarcarItem(contratoId: string, etapa: string, itemKey: 
 /** O que ainda falta na etapa atual para poder avançar. */
 export function pendenciasDaEtapa(
   etapa: EtapaMacro,
+  itens: ItemChecklist[],
   feitos: ChecklistFeito[],
 ): ItemChecklist[] {
-  const itens = CHECKLIST[etapa] ?? []
   const marcados = new Set(feitos.filter((f) => f.etapa === etapa).map((f) => f.item_key))
-  return itens.filter((i) => i.obrigatorio && !marcados.has(i.key))
+  return itens.filter((i) => i.obrigatorio && !marcados.has(i.item_key))
 }
 
 // ===========================================================================

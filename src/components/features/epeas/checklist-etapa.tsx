@@ -32,12 +32,20 @@ export function ChecklistEtapa({
     queryKey: ['epeas-checklist', contrato.contrato_id],
     queryFn: () => E.getChecklist(contrato.contrato_id),
   })
+  // O template vem do banco (checklist_itens) e é o mesmo para todo mundo —
+  // por isso fica em cache longo em vez de ser buscado por contrato.
+  const templateQ = useQuery({
+    queryKey: ['checklist-template'],
+    queryFn: E.getChecklistTemplate,
+    staleTime: 5 * 60_000,
+  })
+
   const feitos = q.data ?? []
-  const itens = E.CHECKLIST[contrato.etapa_macro] ?? []
+  const itens = templateQ.data?.get(contrato.etapa_macro) ?? []
   const marcados = new Set(
     feitos.filter((f) => f.etapa === contrato.etapa_macro).map((f) => f.item_key),
   )
-  const pendentes = E.pendenciasDaEtapa(contrato.etapa_macro, feitos)
+  const pendentes = E.pendenciasDaEtapa(contrato.etapa_macro, itens, feitos)
 
   const i = E.ETAPAS_MACRO.indexOf(contrato.etapa_macro)
   const proxima = E.ETAPAS_MACRO[i + 1]
@@ -82,21 +90,23 @@ export function ChecklistEtapa({
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3">
-        {itens.length === 0 ? (
+        {templateQ.isPending ? (
+          <p className="text-muted-foreground text-sm">Carregando o checklist…</p>
+        ) : itens.length === 0 ? (
           <p className="text-muted-foreground text-sm">Sem itens obrigatórios nesta etapa.</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {itens.map((item) => {
-              const feito = marcados.has(item.key)
+              const feito = marcados.has(item.item_key)
               const quem = feitos.find(
-                (f) => f.etapa === contrato.etapa_macro && f.item_key === item.key,
+                (f) => f.etapa === contrato.etapa_macro && f.item_key === item.item_key,
               )
               return (
-                <li key={item.key}>
+                <li key={item.id}>
                   <button
                     type="button"
                     disabled={mut.isPending}
-                    onClick={() => mut.mutate({ key: item.key, marcar: !feito })}
+                    onClick={() => mut.mutate({ key: item.item_key, marcar: !feito })}
                     className="hover:bg-accent/50 flex w-full items-start gap-2.5 rounded-md p-2 text-left transition-colors"
                   >
                     <span
@@ -138,9 +148,12 @@ export function ChecklistEtapa({
                 </p>
               )}
             </div>
+            {/* Enquanto o template não chega, `pendentes` está vazio por falta
+                de dado, não por estar tudo pronto — liberar o avanço aqui
+                deixaria passar etapa sem checklist. */}
             <Button
               className="gap-1.5"
-              disabled={avancando || pendentes.length > 0}
+              disabled={avancando || pendentes.length > 0 || templateQ.isPending || q.isPending}
               onClick={onAvancar}
             >
               Avançar <ArrowRight className="size-4" />
