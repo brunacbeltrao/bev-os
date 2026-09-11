@@ -38,6 +38,7 @@ import { getDirectory } from '@/lib/org'
 import * as C from '@/lib/contratos'
 import * as E from '@/lib/epeas'
 import * as P from '@/lib/epeas-prazos'
+import * as F from '@/lib/epeas-fila'
 import { isDirexMember } from '@/lib/permissions'
 import { ContratoCard, PrazoResumo, Vazio } from '@/components/features/epeas/epeas-shared'
 import { BaselineEmLote } from '@/components/features/epeas/baseline-em-lote'
@@ -46,16 +47,25 @@ export const Route = createFileRoute('/_app/epeas/')({ component: EpeasPage })
 
 type Vista = 'pendencias' | 'pipeline' | 'todos'
 
+/** Etapa órfã e escalonamento pedem cor de alarme; o resto informa. */
+const TOM_MOTIVO: Record<F.MotivoFila, 'danger' | 'warning' | 'info' | 'neutral'> = {
+  sem_responsavel: 'danger',
+  escalonamento: 'danger',
+  atrasado: 'warning',
+  documento_faltando: 'warning',
+  mencionado: 'info',
+  responsavel: 'neutral',
+}
+
 function EpeasPage() {
   const { person, cycle, occupations } = useApp()
   const qc = useQueryClient()
   const [vista, setVista] = useState<Vista>('pendencias')
   const [busca, setBusca] = useState('')
 
-  const ehGestao = occupations.some((o) => o.directorate.slug === 'gestao')
-  const ehProjetos = occupations.some(
-    (o) => o.directorate.slug === 'projetos' && ['diretor', 'gerente', 'coordenador'].includes(o.role),
-  )
+  // Quem vê a fila por diretoria não é mais decidido aqui: o motor de fila
+  // resolve por papel, e a diretoria só entra no escalonamento. Negócios
+  // segue aqui porque é quem abre contrato novo.
   const ehNegocios = occupations.some((o) => o.directorate.slug === 'negocios')
   const ehDirex = isDirexMember(occupations)
 
@@ -67,6 +77,19 @@ function EpeasPage() {
   // Eventos, suspensões e feriados da carteira inteira em três consultas —
   // o motor precisa deles para dizer o que está de fato atrasado.
   const prazosQ = useQuery({ queryKey: ['epeas-prazos'], queryFn: P.getContextoPrazos })
+  // O que a fila precisa além do prazo: requisitos, o que já foi anexado, o
+  // que foi dispensado e os degraus de escalonamento.
+  const requisitosQ = useQuery({
+    queryKey: ['epeas-requisitos'],
+    queryFn: E.getRequisitos,
+    staleTime: 5 * 60_000,
+  })
+  const carteiraQ = useQuery({ queryKey: ['epeas-carteira-docs'], queryFn: E.getCarteiraDocsEDispensas })
+  const degrausQ = useQuery({
+    queryKey: ['epeas-escalonamento'],
+    queryFn: P.getEscalonamento,
+    staleTime: 10 * 60_000,
+  })
 
   const todos = q.data ?? []
   const ctxPrazos = prazosQ.data ?? P.CONTEXTO_VAZIO
@@ -85,40 +108,47 @@ function EpeasPage() {
   })
 
   /**
-   * A bola está comigo? A regra é de quem é a fase, mais menção direta.
-   * Sem isso cada pessoa teria que varrer a lista para descobrir.
+   * A bola está comigo?
+   *
+   * Antes a regra era a FASE: todo contrato em etapa de Gestão aparecia para
+   * toda a Gestão. Fila de todo mundo não é de ninguém — foi assim que 31
+   * contratos ficaram na mesma etapa sem ninguém se sentir cobrado.
+   *
+   * Agora a etapa declara um papel, o papel resolve pessoas, e cada item
+   * carrega o motivo de estar ali. Ver lib/epeas-fila.ts.
    */
-  const pendencias = useMemo(() => {
-    return todos
-      .filter((c) => {
-        const fase = E.faseDaEtapa(c.etapa_macro)
-        const minhaFase =
-          (fase === 'comercial' && (ehNegocios || c.contrato.responsavel_id === person.id)) ||
-          (fase === 'gestao' && (ehGestao || c.gestao_responsavel_id === person.id)) ||
-          (fase === 'projetos' &&
-            (ehProjetos ||
-              c.gerente_nucleo_id === person.id ||
-              c.scrum_master_id === person.id ||
-              c.assessores_projeto_ids.includes(person.id)))
-        const prazoEstourado = P.prazoContratual(c, ctxPrazos).atrasado
-        return minhaFase || mencionado.has(c.contrato_id) || c.excecoes_abertas > 0 || prazoEstourado
-      })
-      .sort((a, b) => {
-        // prazo contratual estourado vem antes de tudo: é o único destes
-        // que o cliente enxerga. Depois exceção, SLA interno e menção.
-        const peso = (c: E.EpeasContrato) => {
-          const sla = P.slaDaEtapa(c, ctxPrazos)
-          return (
-            (P.prazoContratual(c, ctxPrazos).atrasado ? 200 : 0) +
-            (c.excecoes_abertas > 0 ? 100 : 0) +
-            (sla.atrasado ? 50 : 0) +
-            (mencionado.has(c.contrato_id) ? 25 : 0) +
-            (sla.decorridos ?? 0)
-          )
-        }
-        return peso(b) - peso(a)
-      })
-  }, [todos, ehNegocios, ehGestao, ehProjetos, person.id, mencionado, ctxPrazos])
+  const situacoes = useMemo(
+    () =>
+      P.montarSituacoes(todos, ctxPrazos, {
+        pessoaId: person.id,
+        mencionouMe: mencionado,
+        requisitos: requisitosQ.data ?? [],
+        documentos: carteiraQ.data?.documentos ?? new Map(),
+        dispensas: carteiraQ.data?.dispensas ?? new Map(),
+      }),
+    [todos, ctxPrazos, person.id, mencionado, requisitosQ.data, carteiraQ.data],
+  )
+
+  const minhasDiretorias = useMemo(
+    () => [...new Set(occupations.map((o) => o.directorate.slug))],
+    [occupations],
+  )
+
+  const itensDaFila = useMemo(
+    () => F.filaDe(person.id, minhasDiretorias, situacoes, degrausQ.data ?? []),
+    [person.id, minhasDiretorias, situacoes, degrausQ.data],
+  )
+
+  const porId = useMemo(() => new Map(todos.map((c) => [c.contrato_id, c])), [todos])
+  const pendencias = useMemo(
+    () =>
+      itensDaFila
+        .map((i) => ({ item: i, contrato: porId.get(i.contratoId) }))
+        .filter((x): x is { item: (typeof itensDaFila)[number]; contrato: E.EpeasContrato } =>
+          Boolean(x.contrato),
+        ),
+    [itensDaFila, porId],
+  )
 
   const filtrados = useMemo(() => {
     const t = busca.trim().toLowerCase()
@@ -136,13 +166,33 @@ function EpeasPage() {
   // diferentes: "devemos ao cliente" e "estamos devagar internamente". Antes
   // só a primeira aparecia aqui, e os cartões mostravam a segunda em
   // vermelho — daí "Atrasados: 0" com 31 cartões vermelhos embaixo.
-  const atrasados = todos.filter((c) => P.prazoContratual(c, ctxPrazos).atrasado).length
-  const acimaDoSla = todos.filter((c) => P.slaDaEtapa(c, ctxPrazos).atrasado).length
-  const semBaseline = todos.filter((c) => !P.temBaseline(c.contrato_id, ctxPrazos)).length
+  const ativos = todos.filter((c) => F.ESTADOS_ATIVOS.includes(c.estado))
+  const atrasados = ativos.filter((c) => P.prazoContratual(c, ctxPrazos).atrasado).length
+  const acimaDoSla = ativos.filter((c) => P.slaDaEtapa(c, ctxPrazos).atrasado).length
+  const semBaseline = ativos.filter((c) => !P.temBaseline(c.contrato_id, ctxPrazos)).length
   const suspensos = todos.filter(
-    (c) => P.prazoContratual(c, ctxPrazos).situacao === 'suspenso',
+    (c) => P.prazoContratual(c, ctxPrazos).situacao === 'suspenso' || c.estado === 'pausado',
   ).length
-  const comExcecao = todos.filter((c) => c.excecoes_abertas > 0).length
+  const comExcecao = ativos.filter((c) => c.excecoes_abertas > 0).length
+
+  /**
+   * Contrato ativo sem o PDF assinado anexado.
+   *
+   * É o indicador que mais dói descobrir tarde: o serviço andou, o cliente
+   * cobrou, e não há contrato assinado no sistema para embasar nada. Conta
+   * só quem já passou da assinatura — antes disso a ausência é normal.
+   */
+  const semContratoAssinado = useMemo(() => {
+    const passouDaAssinatura = (c: E.EpeasContrato) =>
+      E.ETAPAS_MACRO.indexOf(c.etapa_macro) >= E.ETAPAS_MACRO.indexOf('gestao_contrato_assinado')
+    const docs = carteiraQ.data?.documentos
+    if (!docs) return 0
+    return ativos.filter((c) => {
+      if (!passouDaAssinatura(c)) return false
+      const meus = E.vigentes(docs.get(c.contrato_id) ?? [])
+      return !meus.some((d) => d.tipo === 'contrato_assinado')
+    }).length
+  }, [ativos, carteiraQ.data])
 
   function acaoDe(c: E.EpeasContrato) {
     const i = E.ETAPAS_MACRO.indexOf(c.etapa_macro)
@@ -204,9 +254,19 @@ function EpeasPage() {
           tom={atrasados > 0 ? 'danger' : undefined}
         />
         <Indicador rotulo="Acima do SLA interno" valor={acimaDoSla} />
-        <Indicador rotulo="Sem baseline" valor={semBaseline} />
+        <Indicador
+          rotulo="Sem contrato assinado"
+          valor={semContratoAssinado}
+          tom={semContratoAssinado > 0 ? 'danger' : undefined}
+        />
         <Indicador rotulo="Com exceção" valor={comExcecao} tom={comExcecao > 0 ? 'danger' : undefined} />
       </div>
+      {semBaseline > 0 && (
+        <p className="text-muted-foreground -mt-2 text-xs">
+          {semBaseline} contrato(s) sem assinatura registrada — sem ela não há prazo, e por isso
+          não contam como atrasados.
+        </p>
+      )}
       {suspensos > 0 && (
         <p className="text-muted-foreground -mt-2 text-xs">
           {suspensos} contrato(s) com prazo suspenso — o contador está congelado neles.
@@ -240,15 +300,22 @@ function EpeasPage() {
           <Vazio>Nada esperando por você agora.</Vazio>
         ) : (
           <div className="flex flex-col gap-3">
-            {pendencias.map((c) => (
-              <ContratoCard
-                key={c.id}
-                c={c}
-                ctx={ctxPrazos}
-                naoLidos={naoLidos.get(c.contrato_id) ?? 0}
-                mencionado={mencionado.has(c.contrato_id)}
-                acao={acaoDe(c)}
-              />
+            {pendencias.map(({ item, contrato: c }) => (
+              <div key={c.id} className="flex flex-col gap-1.5">
+                {/* O motivo vem ANTES do cartão: quem abre a fila precisa
+                    saber por que aquilo está ali antes de ler o resto. */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge variant={TOM_MOTIVO[item.motivo]}>{F.MOTIVO_LABELS[item.motivo]}</Badge>
+                  <span className="text-muted-foreground">{item.explicacao}</span>
+                </div>
+                <ContratoCard
+                  c={c}
+                  ctx={ctxPrazos}
+                  naoLidos={naoLidos.get(c.contrato_id) ?? 0}
+                  mencionado={mencionado.has(c.contrato_id)}
+                  acao={acaoDe(c)}
+                />
+              </div>
             ))}
           </div>
         )

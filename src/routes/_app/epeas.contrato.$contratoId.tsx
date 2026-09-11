@@ -23,11 +23,19 @@ import * as E from '@/lib/epeas'
 import * as P from '@/lib/epeas-prazos'
 import { UNIDADE_LABELS, type UnidadePrazo } from '@/lib/prazos'
 import { supabase } from '@/lib/supabase'
-import { fmtBRLCurto, fmtData, LinkExterno, Vazio } from '@/components/features/epeas/epeas-shared'
+import {
+  fmtBRLCurto,
+  fmtData,
+  LinkExterno,
+  ResponsavelDaEtapa,
+  Vazio,
+} from '@/components/features/epeas/epeas-shared'
 import { Conversa } from '@/components/features/epeas/conversa'
 import { ChecklistEtapa } from '@/components/features/epeas/checklist-etapa'
 import { Documentos } from '@/components/features/epeas/documentos'
 import { PainelPrazo } from '@/components/features/epeas/painel-prazo'
+import { RequisitosEtapa } from '@/components/features/epeas/requisitos-etapa'
+import { EstadoContrato } from '@/components/features/epeas/estado-contrato'
 
 export const Route = createFileRoute('/_app/epeas/contrato/$contratoId')({
   component: ContratoEpeasPage,
@@ -81,6 +89,22 @@ function ContratoEpeasPage() {
     queryKey: ['epeas-suspensoes', contratoId],
     queryFn: () => P.getSuspensoes(contratoId),
   })
+  // Requisitos: o catálogo é o mesmo para todo contrato (cache longo), o
+  // que foi anexado e o que foi dispensado são deste contrato.
+  const requisitosQ = useQuery({
+    queryKey: ['epeas-requisitos'],
+    queryFn: E.getRequisitos,
+    staleTime: 5 * 60_000,
+  })
+  const documentosQ = useQuery({
+    queryKey: ['epeas-documentos', contratoId],
+    queryFn: () => E.getDocumentos(contratoId),
+  })
+  const dispensasQ = useQuery({
+    queryKey: ['epeas-dispensas', contratoId],
+    queryFn: () => E.getDispensas(contratoId),
+  })
+
   const ctxPrazos: P.ContextoPrazos = useMemo(
     () => ({
       feriados: feriadosQ.data ?? new Set<string>(),
@@ -124,9 +148,10 @@ function ContratoEpeasPage() {
     onError: () => toast.error('Só a diretoria de Negócios pode alterar isto.'),
   })
   const mutExcecao = useMutation({
-    mutationFn: (descricao: string) => E.abrirExcecao(contratoId, descricao, person.id),
+    mutationFn: ({ tipo, descricao }: { tipo: E.ExcecaoTipo; descricao: string }) =>
+      E.abrirExcecao(contratoId, tipo, descricao, person.id),
     onSuccess: () => {
-      toast.success('Exceção registrada.')
+      toast.success('Exceção registrada. Ela sinaliza sem mudar a etapa.')
       setNovaExcecao('')
       invalidar()
     },
@@ -140,6 +165,7 @@ function ContratoEpeasPage() {
   })
 
   const [novaExcecao, setNovaExcecao] = useState('')
+  const [tipoExcecao, setTipoExcecao] = useState<E.ExcecaoTipo>('cliente_parado')
 
   if (q.isPending) return <div className="mx-auto max-w-3xl p-8"><Skeleton className="h-64 w-full" /></div>
   const c = q.data
@@ -158,6 +184,12 @@ function ContratoEpeasPage() {
   const pessoas = pessoasQ.data ?? []
   const slaExecucao = P.slaEtapaServico(c, ctxPrazos)
   const trilha = trilhaQ.data ?? []
+
+  const requisitosCarregando =
+    requisitosQ.isPending || documentosQ.isPending || dispensasQ.isPending
+  const pendencias = requisitosCarregando
+    ? []
+    : E.pendenciasDeRequisito(c, requisitosQ.data ?? [], documentosQ.data ?? [], dispensasQ.data ?? [])
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 p-4 md:p-8">
@@ -206,11 +238,19 @@ function ContratoEpeasPage() {
         </Card>
       )}
 
+      <ResponsavelDaEtapa c={c} pessoas={pessoas.map((p) => p.person)} />
+
+      <EstadoContrato contrato={c} pendencias={pendencias} />
+
       <PainelPrazo contrato={c} ctx={ctxPrazos} />
+
+      <RequisitosEtapa contrato={c} pendencias={pendencias} carregando={requisitosCarregando} />
 
       <ChecklistEtapa
         contrato={c}
         ctx={ctxPrazos}
+        bloqueios={pendencias.map((p) => p.requisito.label)}
+        bloqueiosCarregando={requisitosCarregando}
         avancando={mutPatch.isPending}
         onAvancar={() => proxima && mutAvancar.mutate()}
       />
@@ -486,7 +526,8 @@ function ContratoEpeasPage() {
         <CardHeader>
           <CardTitle className="text-base">Registrar exceção</CardTitle>
           <CardDescription>
-            Sinaliza um problema sem mudar a etapa do contrato.
+            Sinaliza um problema sem mudar a etapa nem o estado. A causa alimenta o relatório —
+            sem ela, trinta exceções viram trinta textos que ninguém soma.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -494,9 +535,26 @@ function ContratoEpeasPage() {
             className="flex flex-col gap-2"
             onSubmit={(e) => {
               e.preventDefault()
-              if (novaExcecao.trim()) mutExcecao.mutate(novaExcecao.trim())
+              if (novaExcecao.trim()) {
+                mutExcecao.mutate({ tipo: tipoExcecao, descricao: novaExcecao.trim() })
+              }
             }}
           >
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="tipo-excecao">Causa</Label>
+              <select
+                id="tipo-excecao"
+                className="border-input bg-card h-9 w-fit rounded-md border px-3 text-sm shadow-xs"
+                value={tipoExcecao}
+                onChange={(e) => setTipoExcecao(e.target.value as E.ExcecaoTipo)}
+              >
+                {E.EXCECAO_TIPOS.map((t) => (
+                  <option key={t} value={t}>
+                    {E.EXCECAO_TIPO_LABELS[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Textarea
               value={novaExcecao}
               onChange={(e) => setNovaExcecao(e.target.value)}
@@ -513,7 +571,9 @@ function ContratoEpeasPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Histórico</CardTitle>
-          <CardDescription>Toda mudança de etapa, do fechamento até aqui.</CardDescription>
+          <CardDescription>
+            Etapa, alocação, prazo, suspensão, documento e estado — do fechamento até aqui.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {histQ.isPending ? (
@@ -525,14 +585,12 @@ function ContratoEpeasPage() {
               {(histQ.data ?? []).map((h) => (
                 <li key={h.id} className="flex gap-3 text-sm">
                   <div className="bg-primary mt-1.5 size-2 shrink-0 rounded-full" aria-hidden="true" />
-                  <div>
+                  <div className="min-w-0">
                     <p>
-                      {h.etapa_anterior && (
-                        <span className="text-muted-foreground">
-                          {E.rotuloEtapa(h.campo, h.etapa_anterior)} →{' '}
-                        </span>
-                      )}
-                      <span className="font-medium">{E.rotuloEtapa(h.campo, h.etapa_nova)}</span>
+                      <span className="text-muted-foreground text-xs">
+                        {E.HISTORICO_CAMPO_LABELS[h.campo]} ·{' '}
+                      </span>
+                      <span className="font-medium">{E.fraseHistorico(h)}</span>
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {h.alterado_por?.nome ?? 'sistema'} ·{' '}

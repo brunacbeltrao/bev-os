@@ -17,11 +17,16 @@ import * as P from '@/lib/epeas-prazos'
 export function ChecklistEtapa({
   contrato,
   ctx,
+  bloqueios,
+  bloqueiosCarregando,
   onAvancar,
   avancando,
 }: {
   contrato: E.EpeasContrato
   ctx: P.ContextoPrazos
+  /** Requisitos ainda não cumpridos — travam o avanço junto com o checklist. */
+  bloqueios: string[]
+  bloqueiosCarregando: boolean
   onAvancar: () => void
   avancando: boolean
 }) {
@@ -144,16 +149,28 @@ export function ChecklistEtapa({
               <span className="font-medium">{E.ETAPA_MACRO_LABELS[proxima]}</span>
               {pendentes.length > 0 && (
                 <p className="text-muted-foreground text-xs">
-                  Falta: {pendentes.map((p) => p.label).join(' · ')}
+                  Falta marcar: {pendentes.map((p) => p.label).join(' · ')}
+                </p>
+              )}
+              {bloqueios.length > 0 && (
+                <p className="text-status-warning text-xs">
+                  Falta no sistema: {bloqueios.join(' · ')}
                 </p>
               )}
             </div>
-            {/* Enquanto o template não chega, `pendentes` está vazio por falta
-                de dado, não por estar tudo pronto — liberar o avanço aqui
-                deixaria passar etapa sem checklist. */}
+            {/* Enquanto template, marcações ou requisitos não chegam, as listas
+                estão vazias por falta de dado, não por estar tudo pronto —
+                liberar o avanço aqui deixaria passar etapa incompleta. */}
             <Button
               className="gap-1.5"
-              disabled={avancando || pendentes.length > 0 || templateQ.isPending || q.isPending}
+              disabled={
+                avancando ||
+                pendentes.length > 0 ||
+                bloqueios.length > 0 ||
+                bloqueiosCarregando ||
+                templateQ.isPending ||
+                q.isPending
+              }
               onClick={onAvancar}
             >
               Avançar <ArrowRight className="size-4" />

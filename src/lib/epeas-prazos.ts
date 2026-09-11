@@ -18,7 +18,9 @@ import {
   type SuspensaoMotivo,
   type UnidadePrazo,
 } from './prazos'
+import * as E from './epeas'
 import type { EpeasContrato } from './epeas'
+import type * as F from './epeas-fila'
 
 /**
  * Evento que serve de marco zero do contrato.
@@ -274,6 +276,75 @@ export function slaDaEtapa(
   hoje = hojeRecife(),
 ): ResultadoPrazo {
   return slaEtapaServico(c, ctx, hoje) ?? slaEtapaMacro(c, ctx, hoje)
+}
+
+// ---------------------------------------------------------------------------
+// Cola com o motor de fila
+// ---------------------------------------------------------------------------
+
+/**
+ * Traduz a carteira para o que `lib/epeas-fila.ts` consome.
+ *
+ * `mencionados` recebe só o id de quem está olhando: a fila é renderizada
+ * para uma pessoa, e levantar todas as menções de todos os contratos para
+ * todo mundo seria varrer a tabela de comentários inteira para desenhar uma
+ * tela. Quem não está olhando não perde nada — quando abrir, o cálculo roda
+ * para ela.
+ */
+export function montarSituacoes(
+  contratos: readonly EpeasContrato[],
+  ctx: ContextoPrazos,
+  entrada: {
+    pessoaId: string
+    mencionouMe: ReadonlySet<string>
+    requisitos: readonly E.Requisito[]
+    documentos: ReadonlyMap<string, E.Documento[]>
+    dispensas: ReadonlyMap<string, ReadonlySet<string>>
+  },
+  hoje = hojeRecife(),
+): F.SituacaoContrato[] {
+  return contratos.map((c) => {
+    const sla = slaDaEtapa(c, ctx, hoje)
+    const contratual = prazoContratual(c, ctx, hoje)
+
+    // O atraso que cobra é o maior dos dois: estourar a cláusula é mais
+    // grave que estourar o SLA interno, mas os dois puxam para a fila.
+    const atrasoSla = sla.restantes !== null && sla.restantes < 0 ? -sla.restantes : 0
+    const atrasoContrato =
+      contratual.restantes !== null && contratual.atrasado ? -contratual.restantes : 0
+
+    const docs = entrada.documentos.get(c.contrato_id) ?? []
+    const dispensados = entrada.dispensas.get(c.contrato_id) ?? new Set<string>()
+    const pendentes = E.pendenciasDeRequisito(
+      c,
+      entrada.requisitos as E.Requisito[],
+      docs,
+      [...dispensados].map((id) => ({ requisito_id: id }) as E.Dispensa),
+    )
+
+    return {
+      contratoId: c.contrato_id,
+      estado: c.estado,
+      alocacao: E.alocacaoDe(c),
+      papelDaEtapa: E.papelDaEtapaAtual(c),
+      etapaLabel: c.etapa_servico?.nome ?? E.ETAPA_MACRO_LABELS[c.etapa_macro],
+      atrasoDiasUteis: Math.max(atrasoSla, atrasoContrato),
+      documentosFaltando: pendentes
+        .filter((p) => p.falta === 'documento')
+        .map((p) => p.requisito.label),
+      mencionados: entrada.mencionouMe.has(c.contrato_id) ? [entrada.pessoaId] : [],
+    }
+  })
+}
+
+/** Os degraus de escalonamento configurados. */
+export async function getEscalonamento(): Promise<F.Degrau[]> {
+  const { data, error } = await supabase
+    .from('epeas_escalonamento')
+    .select('dias_uteis, papel, diretoria_slug, rotulo')
+    .order('ordem')
+  if (error) throw error
+  return (data ?? []) as unknown as F.Degrau[]
 }
 
 /**

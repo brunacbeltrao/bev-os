@@ -8,6 +8,7 @@
  * Quem vê e quem edita é resolvido pelo RLS (epeas_pode_ver / epeas_pode_editar).
  */
 import { supabase } from './supabase'
+import { ESTADO_LABELS, PAPEL_LABELS, type Alocacao, type Estado, type Papel } from './epeas-fila'
 
 export type EtapaMacro =
   | 'comercial_contrato_fechado'
@@ -96,10 +97,36 @@ export interface ServicoEtapa {
   evento_gatilho: string | null
   /** Só em etapa condicionada: o que se está esperando, para a tela dizer. */
   prazo_condicao: string | null
+  /** Qual papel do contrato responde por esta etapa. Ver lib/epeas-fila.ts. */
+  papel_responsavel: Papel
 }
 
 const SERVICO_ETAPA_SELECT =
-  'id, servico_id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho, prazo_condicao'
+  'id, servico_id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, ' +
+  'evento_gatilho, prazo_condicao, papel_responsavel'
+
+/**
+ * Papel que responde por cada etapa do fluxo macro.
+ *
+ * Mora no código, não no banco, porque `etapa_macro` é um enum de código: as
+ * doze etapas são o processo da EJ, não configuração por serviço. A trilha
+ * de execução é o contrário — muda por serviço — e por isso o papel dela
+ * vive em `servico_etapas.papel_responsavel`.
+ */
+export const PAPEL_ETAPA_MACRO: Record<EtapaMacro, Papel> = {
+  comercial_contrato_fechado: 'comercial',
+  comercial_formulario_enviado: 'comercial',
+  gestao_formulario_conferido: 'gestao',
+  gestao_assessor_definido: 'gestao',
+  gestao_contrato_elaboracao: 'gestao',
+  gestao_contrato_assinatura: 'gestao',
+  gestao_contrato_assinado: 'gestao',
+  projetos_aguardando_alocacao: 'gerente_nucleo',
+  projetos_alocado: 'gerente_nucleo',
+  projetos_grupo_criado: 'scrum_master',
+  projetos_em_execucao: 'assessor_projeto',
+  projetos_entregue: 'gerente_nucleo',
+}
 
 /** Trilha de um serviço, em ordem. Vazia = serviço sem trilha configurada. */
 export async function getServicoEtapas(servicoId: string | null): Promise<ServicoEtapa[]> {
@@ -110,7 +137,7 @@ export async function getServicoEtapas(servicoId: string | null): Promise<Servic
     .eq('servico_id', servicoId)
     .order('ordem')
   if (error) throw error
-  return (data ?? []) as ServicoEtapa[]
+  return (data ?? []) as unknown as ServicoEtapa[]
 }
 
 /**
@@ -167,6 +194,12 @@ export interface EpeasContrato {
   prazo_clausula: string | null
   prazo_evento_gatilho: string | null
   prazo_condicao: string | null
+  /** Estado de ciclo de vida — eixo perpendicular à etapa. */
+  estado: Estado
+  estado_em: string
+  estado_motivo_id: string | null
+  estado_observacao: string | null
+  estado_motivo: { id: string; codigo: string; label: string } | null
   created_at: string
   etapa_macro_em: string
   etapa_servico_em: string | null
@@ -199,12 +232,14 @@ const SELECT = `
   csat_enviado_em, termo_enviado_em, nf_emitida_em,
   prazo_tipo, prazo_quantidade, prazo_unidade, prazo_quantidade_min,
   prazo_clausula, prazo_evento_gatilho, prazo_condicao,
+  estado, estado_em, estado_motivo_id, estado_observacao,
+  estado_motivo:epeas_estado_motivos(id, codigo, label),
   contrato:contratos!inner(
     id, cliente, nome_comercial, valor, data_fechamento, responsavel_id,
     servico:project_services(id, nome),
     responsavel:people!contratos_responsavel_id_fkey(id, nome)
   ),
-  etapa_servico:servico_etapas(id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho, prazo_condicao),
+  etapa_servico:servico_etapas(id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho, prazo_condicao, papel_responsavel),
   nucleo:project_nucleos(id, nome, slug),
   gestao_responsavel:people!epeas_lifecycle_gestao_responsavel_id_fkey(id, nome),
   gerente_nucleo:people!epeas_lifecycle_gerente_nucleo_id_fkey(id, nome),
@@ -369,38 +404,69 @@ export interface Documento {
   tipo: DocumentoTipo
   nome: string
   path: string
+  versao: number
+  /** Preenchido = esta é uma versão antiga. Null = é a vigente. */
+  substituido_por: string | null
+  etapa_macro: EtapaMacro | null
+  observacao: string | null
   created_at: string
   enviado_por: { id: string; nome: string } | null
 }
 
+const DOCUMENTO_SELECT =
+  'id, contrato_id, tipo, nome, path, versao, substituido_por, etapa_macro, ' +
+  'observacao, created_at, enviado_por:people!epeas_documentos_enviado_por_fkey(id, nome)'
+
+/** Todos os documentos, inclusive versões antigas. */
 export async function getDocumentos(contratoId: string): Promise<Documento[]> {
   const { data, error } = await supabase
     .from('epeas_documentos')
-    .select('id, contrato_id, tipo, nome, path, created_at, enviado_por:people!epeas_documentos_enviado_por_fkey(id, nome)')
+    .select(DOCUMENTO_SELECT)
     .eq('contrato_id', contratoId)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as unknown as Documento[]
 }
 
+/** Só o que vale hoje — é isto que o requisito olha. */
+export const vigentes = (docs: Documento[]) => docs.filter((d) => d.substituido_por === null)
+
 export async function enviarDocumento(
   contratoId: string,
   arquivo: File,
   tipo: DocumentoTipo,
   pessoaId: string,
+  opcoes?: { etapaMacro?: EtapaMacro | null; observacao?: string; substitui?: Documento },
 ) {
   const path = `${contratoId}/${Date.now()}-${arquivo.name.replace(/[^\w.\-]/g, '_')}`
   const { error: upErr } = await supabase.storage.from('epeas').upload(path, arquivo)
   if (upErr) throw upErr
 
-  const { error } = await supabase.from('epeas_documentos').insert({
-    contrato_id: contratoId,
-    tipo,
-    nome: arquivo.name,
-    path,
-    enviado_por: pessoaId,
-  })
+  const { data, error } = await supabase
+    .from('epeas_documentos')
+    .insert({
+      contrato_id: contratoId,
+      tipo,
+      nome: arquivo.name,
+      path,
+      enviado_por: pessoaId,
+      etapa_macro: opcoes?.etapaMacro ?? null,
+      observacao: opcoes?.observacao?.trim() || null,
+      versao: opcoes?.substitui ? opcoes.substitui.versao + 1 : 1,
+    })
+    .select('id')
+    .single()
   if (error) throw error
+
+  // A versão antiga aponta para a nova em vez de sumir. Quem precisar saber
+  // o que foi enviado ao cliente em março ainda consegue chegar lá.
+  if (opcoes?.substitui) {
+    const { error: subErr } = await supabase
+      .from('epeas_documentos')
+      .update({ substituido_por: data.id })
+      .eq('id', opcoes.substitui.id)
+    if (subErr) throw subErr
+  }
 }
 
 export async function removerDocumento(id: string, path: string) {
@@ -422,9 +488,34 @@ export async function urlDocumento(path: string): Promise<string> {
 // Exceções
 // ---------------------------------------------------------------------------
 
+/**
+ * Causa da exceção.
+ *
+ * Exceção sinaliza sem mudar etapa nem estado: o contrato segue onde está,
+ * mas a tela mostra que há algo travando. O tipo é o que transforma trinta
+ * textos livres em contagem por causa.
+ */
+export type ExcecaoTipo =
+  | 'cliente_parado'
+  | 'retrabalho'
+  | 'mudanca_escopo'
+  | 'problema_interno'
+  | 'orgao_publico'
+
+export const EXCECAO_TIPO_LABELS: Record<ExcecaoTipo, string> = {
+  cliente_parado: 'Cliente parado',
+  retrabalho: 'Retrabalho',
+  mudanca_escopo: 'Mudança de escopo',
+  problema_interno: 'Problema interno',
+  orgao_publico: 'Órgão público',
+}
+
+export const EXCECAO_TIPOS = Object.keys(EXCECAO_TIPO_LABELS) as ExcecaoTipo[]
+
 export interface Excecao {
   id: string
   contrato_id: string
+  tipo: ExcecaoTipo
   descricao: string
   status: 'aberto' | 'resolvido'
   created_at: string
@@ -435,18 +526,41 @@ export interface Excecao {
 export async function getExcecoes(contratoId: string): Promise<Excecao[]> {
   const { data, error } = await supabase
     .from('epeas_contract_exceptions')
-    .select('id, contrato_id, descricao, status, created_at, resolved_at, aberto_por:people!epeas_contract_exceptions_aberto_por_id_fkey(id, nome)')
+    .select('id, contrato_id, tipo, descricao, status, created_at, resolved_at, aberto_por:people!epeas_contract_exceptions_aberto_por_id_fkey(id, nome)')
     .eq('contrato_id', contratoId)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as unknown as Excecao[]
 }
 
-export async function abrirExcecao(contratoId: string, descricao: string, pessoaId: string) {
+export async function abrirExcecao(
+  contratoId: string,
+  tipo: ExcecaoTipo,
+  descricao: string,
+  pessoaId: string,
+) {
   const { error } = await supabase
     .from('epeas_contract_exceptions')
-    .insert({ contrato_id: contratoId, descricao, aberto_por_id: pessoaId })
+    .insert({ contrato_id: contratoId, tipo, descricao, aberto_por_id: pessoaId })
   if (error) throw error
+}
+
+/** Contagem por causa — o relatório que o tipo existe para permitir. */
+export async function getCausasDeExcecao(): Promise<{ tipo: ExcecaoTipo; abertas: number; total: number }[]> {
+  const { data, error } = await supabase
+    .from('epeas_contract_exceptions')
+    .select('tipo, status')
+  if (error) throw error
+
+  const mapa = new Map<ExcecaoTipo, { abertas: number; total: number }>()
+  for (const t of EXCECAO_TIPOS) mapa.set(t, { abertas: 0, total: 0 })
+  for (const e of (data ?? []) as { tipo: ExcecaoTipo; status: string }[]) {
+    const at = mapa.get(e.tipo)
+    if (!at) continue
+    at.total += 1
+    if (e.status === 'aberto') at.abertas += 1
+  }
+  return [...mapa].map(([tipo, v]) => ({ tipo, ...v })).sort((a, b) => b.abertas - a.abertas)
 }
 
 export async function resolverExcecao(id: string) {
@@ -461,11 +575,44 @@ export async function resolverExcecao(id: string) {
 // Histórico
 // ---------------------------------------------------------------------------
 
+/**
+ * O que o histórico observa.
+ *
+ * Até 11/09 só via etapa. Alocação, prazo, suspensão, documento, estado e
+ * dispensa aconteciam sem deixar linha — e é deste log que os indicadores
+ * vão sair: tempo por etapa, causa de atraso, quantas vezes um contrato
+ * trocou de gerente. Nada disso é reconstituível se o log não viu.
+ */
+export type HistoricoCampo =
+  | 'etapa_macro'
+  | 'etapa_execucao'
+  | 'etapa_servico'
+  | 'alocacao'
+  | 'prazo'
+  | 'suspensao'
+  | 'documento'
+  | 'estado'
+  | 'requisito_dispensado'
+
+export const HISTORICO_CAMPO_LABELS: Record<HistoricoCampo, string> = {
+  etapa_macro: 'Etapa',
+  etapa_execucao: 'Execução (legado)',
+  etapa_servico: 'Etapa da trilha',
+  alocacao: 'Alocação',
+  prazo: 'Prazo contratual',
+  suspensao: 'Suspensão de prazo',
+  documento: 'Documento',
+  estado: 'Estado do contrato',
+  requisito_dispensado: 'Requisito dispensado',
+}
+
 export interface HistoricoItem {
   id: string
-  campo: 'etapa_macro' | 'etapa_execucao' | 'etapa_servico'
-  etapa_anterior: string | null
-  etapa_nova: string
+  campo: HistoricoCampo
+  valor_anterior: string | null
+  valor_novo: string | null
+  /** Contexto que não cabe em antes/depois: papel, motivo, justificativa. */
+  detalhe: Record<string, unknown> | null
   created_at: string
   alterado_por: { id: string; nome: string } | null
 }
@@ -473,20 +620,255 @@ export interface HistoricoItem {
 export async function getHistorico(contratoId: string): Promise<HistoricoItem[]> {
   const { data, error } = await supabase
     .from('epeas_contract_history')
-    .select('id, campo, etapa_anterior, etapa_nova, created_at, alterado_por:people!epeas_contract_history_alterado_por_id_fkey(id, nome)')
+    .select('id, campo, valor_anterior, valor_novo, detalhe, created_at, alterado_por:people!epeas_contract_history_alterado_por_id_fkey(id, nome)')
     .eq('contrato_id', contratoId)
     .order('created_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as unknown as HistoricoItem[]
 }
 
-/** Rótulo legível de qualquer etapa, macro ou de execução. */
-export function rotuloEtapa(campo: string, valor: string | null): string {
+/** Rótulo legível de um valor do histórico, seja ele etapa, estado ou nome. */
+export function rotuloHistorico(campo: HistoricoCampo, valor: string | null): string {
   if (!valor) return '—'
   if (campo === 'etapa_macro') return ETAPA_MACRO_LABELS[valor as EtapaMacro] ?? valor
+  if (campo === 'estado') return ESTADO_LABELS[valor as Estado] ?? valor
   // A trilha grava o nome da etapa já legível; só o legado precisa de mapa.
-  if (campo === 'etapa_servico') return valor
-  return ETAPA_EXECUCAO_LEGADO[valor] ?? valor
+  if (campo === 'etapa_execucao') return ETAPA_EXECUCAO_LEGADO[valor] ?? valor
+  return valor
+}
+
+/** Uma linha do histórico em uma frase, já com o contexto do `detalhe`. */
+export function fraseHistorico(h: HistoricoItem): string {
+  const de = rotuloHistorico(h.campo, h.valor_anterior)
+  const para = rotuloHistorico(h.campo, h.valor_novo)
+  const d = (h.detalhe ?? {}) as Record<string, string | number | null>
+
+  switch (h.campo) {
+    case 'alocacao': {
+      const papel = d.papel ? (PAPEL_LABELS[d.papel as Papel] ?? String(d.papel)) : 'Alocação'
+      return h.valor_novo ? `${papel}: ${de} → ${para}` : `${papel}: ${de} removido`
+    }
+    case 'documento': {
+      const acao = d.acao === 'removido' ? 'removeu' : d.acao === 'substituido' ? 'substituiu' : 'anexou'
+      const tipo = d.tipo ? DOCUMENTO_LABELS[d.tipo as DocumentoTipo] ?? String(d.tipo) : 'documento'
+      return `${acao} ${tipo}${d.versao ? ` (v${d.versao})` : ''}: ${h.valor_novo ?? h.valor_anterior}`
+    }
+    case 'suspensao':
+      return d.justificativa ? `${para} — ${d.justificativa}` : para
+    case 'estado':
+      return `${de} → ${para}${d.motivo ? ` (${d.motivo})` : ''}`
+    case 'requisito_dispensado':
+      return `${de} dispensado${d.justificativa ? ` — ${d.justificativa}` : ''}`
+    case 'prazo':
+      return `${de || 'sem prazo'} → ${para}`
+    default:
+      return `${de} → ${para}`
+  }
+}
+
+// ===========================================================================
+// Estado de ciclo de vida
+// ===========================================================================
+
+export interface EstadoMotivo {
+  id: string
+  estado: Estado
+  codigo: string
+  label: string
+  ordem: number
+}
+
+export async function getEstadoMotivos(): Promise<EstadoMotivo[]> {
+  const { data, error } = await supabase
+    .from('epeas_estado_motivos')
+    .select('id, estado, codigo, label, ordem')
+    .eq('ativo', true)
+    .order('estado')
+    .order('ordem')
+  if (error) throw error
+  return (data ?? []) as EstadoMotivo[]
+}
+
+/**
+ * Muda o estado do contrato.
+ *
+ * O motivo é obrigatório fora de `em_execucao`, e o banco confere que ele
+ * pertence ao estado escolhido — não dá para marcar concluído com motivo de
+ * inadimplência. A sincronia com `contratos.status` é feita por gatilho, para
+ * que faturamento e execução nunca discordem.
+ */
+export async function mudarEstado(
+  contratoId: string,
+  estado: Estado,
+  motivoId: string | null,
+  observacao?: string,
+) {
+  const { error } = await supabase
+    .from('epeas_lifecycle')
+    .update({
+      estado,
+      estado_motivo_id: estado === 'em_execucao' ? null : motivoId,
+      estado_observacao: observacao?.trim() || null,
+    })
+    .eq('contrato_id', contratoId)
+  if (error) throw error
+}
+
+// ===========================================================================
+// Requisitos que travam a saída da etapa
+// ===========================================================================
+
+export type RequisitoTipo = 'documento' | 'campo'
+
+export interface Requisito {
+  id: string
+  etapa_macro: EtapaMacro | null
+  servico_etapa_id: string | null
+  tipo: RequisitoTipo
+  documento_tipo: DocumentoTipo | null
+  campo: string | null
+  label: string
+  ajuda: string | null
+  obrigatorio: boolean
+  ordem: number
+}
+
+export interface Dispensa {
+  id: string
+  contrato_id: string
+  requisito_id: string
+  justificativa: string
+  created_at: string
+  dispensado_por: { id: string; nome: string } | null
+}
+
+export async function getRequisitos(): Promise<Requisito[]> {
+  const { data, error } = await supabase
+    .from('epeas_requisitos')
+    .select('id, etapa_macro, servico_etapa_id, tipo, documento_tipo, campo, label, ajuda, obrigatorio, ordem')
+    .order('ordem')
+  if (error) throw error
+  return (data ?? []) as Requisito[]
+}
+
+export async function getDispensas(contratoId: string): Promise<Dispensa[]> {
+  const { data, error } = await supabase
+    .from('epeas_requisito_dispensas')
+    .select('id, contrato_id, requisito_id, justificativa, created_at, dispensado_por:people!epeas_requisito_dispensas_dispensado_por_fkey(id, nome)')
+    .eq('contrato_id', contratoId)
+  if (error) throw error
+  return (data ?? []) as unknown as Dispensa[]
+}
+
+export async function dispensarRequisito(
+  contratoId: string,
+  requisitoId: string,
+  justificativa: string,
+  pessoaId: string,
+) {
+  const { error } = await supabase.from('epeas_requisito_dispensas').insert({
+    contrato_id: contratoId,
+    requisito_id: requisitoId,
+    justificativa: justificativa.trim(),
+    dispensado_por: pessoaId,
+  })
+  if (error) throw error
+}
+
+/** Um requisito pendente, já com o motivo de estar pendente. */
+export interface Pendencia {
+  requisito: Requisito
+  /** 'documento' = falta anexar; 'campo' = falta preencher. */
+  falta: RequisitoTipo
+}
+
+/**
+ * O que impede o contrato de sair da etapa atual.
+ *
+ * Só olha requisito obrigatório e não dispensado. Documento conta apenas se
+ * for a versão vigente — substituído não cumpre requisito.
+ */
+export function pendenciasDeRequisito(
+  c: EpeasContrato,
+  requisitos: Requisito[],
+  documentos: Documento[],
+  dispensas: Dispensa[],
+): Pendencia[] {
+  const dispensados = new Set(dispensas.map((d) => d.requisito_id))
+  const tiposAnexados = new Set(vigentes(documentos).map((d) => d.tipo))
+
+  const daEtapa = requisitos.filter(
+    (r) =>
+      r.obrigatorio &&
+      !dispensados.has(r.id) &&
+      (r.etapa_macro === c.etapa_macro ||
+        (r.servico_etapa_id !== null && r.servico_etapa_id === c.etapa_servico_id)),
+  )
+
+  return daEtapa
+    .filter((r) => {
+      if (r.tipo === 'documento') return !tiposAnexados.has(r.documento_tipo!)
+      return !valorDoCampo(c, r.campo!)
+    })
+    .map((r) => ({ requisito: r, falta: r.tipo }))
+    .sort((a, b) => a.requisito.ordem - b.requisito.ordem)
+}
+
+/** Lê um campo de requisito, que pode morar no ciclo de vida ou no contrato. */
+function valorDoCampo(c: EpeasContrato, campo: string): boolean {
+  const doLifecycle = (c as unknown as Record<string, unknown>)[campo]
+  if (doLifecycle !== undefined && doLifecycle !== null && doLifecycle !== '') return true
+  const doContrato = (c.contrato as unknown as Record<string, unknown>)[campo]
+  return doContrato !== undefined && doContrato !== null && doContrato !== ''
+}
+
+/**
+ * Documentos e dispensas da carteira inteira, em duas consultas.
+ *
+ * A home calcula requisito pendente de 32 contratos; buscar documento e
+ * dispensa por contrato seriam 64 idas ao banco para desenhar uma tela.
+ */
+export async function getCarteiraDocsEDispensas(): Promise<{
+  documentos: Map<string, Documento[]>
+  dispensas: Map<string, Set<string>>
+}> {
+  const [docs, disp] = await Promise.all([
+    supabase.from('epeas_documentos').select(DOCUMENTO_SELECT),
+    supabase.from('epeas_requisito_dispensas').select('contrato_id, requisito_id'),
+  ])
+  if (docs.error) throw docs.error
+  if (disp.error) throw disp.error
+
+  const documentos = new Map<string, Documento[]>()
+  for (const d of (docs.data ?? []) as unknown as Documento[]) {
+    const lista = documentos.get(d.contrato_id) ?? []
+    lista.push(d)
+    documentos.set(d.contrato_id, lista)
+  }
+
+  const dispensas = new Map<string, Set<string>>()
+  for (const d of (disp.data ?? []) as { contrato_id: string; requisito_id: string }[]) {
+    const set = dispensas.get(d.contrato_id) ?? new Set<string>()
+    set.add(d.requisito_id)
+    dispensas.set(d.contrato_id, set)
+  }
+  return { documentos, dispensas }
+}
+
+/** A alocação do contrato no formato que o motor de fila consome. */
+export function alocacaoDe(c: EpeasContrato): Alocacao {
+  return {
+    comercial: c.contrato.responsavel_id,
+    gestao: c.gestao_responsavel_id,
+    gerente_nucleo: c.gerente_nucleo_id,
+    scrum_master: c.scrum_master_id,
+    assessor_projeto: c.assessores_projeto_ids ?? [],
+  }
+}
+
+/** Qual papel responde pela etapa em que o contrato está agora. */
+export function papelDaEtapaAtual(c: EpeasContrato): Papel {
+  return c.etapa_servico?.papel_responsavel ?? PAPEL_ETAPA_MACRO[c.etapa_macro]
 }
 
 // Prazo NÃO se calcula aqui. Todo cálculo de decorrido, vencimento e atraso

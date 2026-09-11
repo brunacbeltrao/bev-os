@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import * as E from '@/lib/epeas'
 import * as P from '@/lib/epeas-prazos'
+import * as F from '@/lib/epeas-fila'
 import { SITUACAO_LABELS, type ResultadoPrazo } from '@/lib/prazos'
 
 export const fmtBRLCurto = (n: number) =>
@@ -180,6 +181,52 @@ export function ContratoCard({
         {acao && <div className="flex flex-wrap gap-2 border-t pt-3">{acao}</div>}
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Quem responde pela etapa atual — ou o erro de não haver ninguém.
+ *
+ * Etapa sem responsável resolvido não pode ser silêncio: é o estado em que
+ * o contrato para sem que ninguém saiba que parou. Aqui ele aparece em
+ * vermelho, dizendo qual papel falta preencher.
+ */
+export function ResponsavelDaEtapa({
+  c,
+  pessoas,
+}: {
+  c: E.EpeasContrato
+  pessoas: { id: string; nome: string }[]
+}) {
+  const papel = E.papelDaEtapaAtual(c)
+  const ids = F.resolverPapel(E.alocacaoDe(c), papel)
+  const nomes = ids
+    .map((id) => pessoas.find((p) => p.id === id)?.nome)
+    .filter((n): n is string => Boolean(n))
+  const etapa = c.etapa_servico?.nome ?? E.ETAPA_MACRO_LABELS[c.etapa_macro]
+
+  if (ids.length === 0) {
+    return (
+      <Card className="border-status-danger/40 bg-status-danger-bg/40">
+        <CardContent className="flex items-start gap-2 p-4 text-sm">
+          <AlertTriangle className="text-status-danger mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <div>
+            <p className="text-status-danger font-semibold">Etapa sem responsável</p>
+            <p className="text-muted-foreground text-xs">
+              "{etapa}" espera {F.PAPEL_LABELS[papel]}, e não há ninguém nesse papel neste
+              contrato. Enquanto não houver, a cobrança cai na Diretoria de Negócios.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <p className="text-muted-foreground text-xs">
+      Responde por "{etapa}": <span className="text-foreground font-medium">{nomes.join(', ')}</span>{' '}
+      ({F.PAPEL_LABELS[papel]})
+    </p>
   )
 }
 
