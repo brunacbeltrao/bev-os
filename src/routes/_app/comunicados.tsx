@@ -31,6 +31,7 @@ import {
   getAnnouncements,
   markAsRead,
   updateAnnouncement,
+  urlsDeAnexos,
   type Announcement,
 } from '@/lib/comunicados'
 import { fmtDate } from '@/lib/use-context-scope'
@@ -177,6 +178,17 @@ function AvisoDetail({ announcement }: { announcement: Announcement }) {
   const imagens = announcement.attachments.filter((a) => a.tipo === 'imagem')
   const arquivos = announcement.attachments.filter((a) => a.tipo !== 'imagem')
 
+  // O bucket é privado: a URL é assinada na leitura e vale 5 minutos. O
+  // refetch antes disso evita o link morrer na mão de quem ainda está lendo.
+  const anexosQ = useQuery({
+    queryKey: ['aviso-anexos', announcement.id],
+    queryFn: () => urlsDeAnexos(announcement.attachments.map((a) => a.path)),
+    enabled: announcement.attachments.length > 0,
+    staleTime: 4 * 60_000,
+    refetchInterval: 4 * 60_000,
+  })
+  const urls = anexosQ.data ?? new Map<string, string>()
+
   if (editando) {
     return (
       <div className="flex flex-col gap-3">
@@ -266,25 +278,62 @@ function AvisoDetail({ announcement }: { announcement: Announcement }) {
         </a>
       )}
 
-      {imagens.map((img) => (
-        <img key={img.id} src={img.url} alt={img.nome} className="max-h-96 rounded-md border object-contain" />
-      ))}
+      {imagens.map((img) => {
+        const src = urls.get(img.path)
+        // Sem URL assinada não há o que mostrar: um <img> sem src vira ícone
+        // de imagem quebrada, que parece anexo perdido.
+        if (!src) {
+          return (
+            <div
+              key={img.id}
+              className="text-muted-foreground rounded-md border border-dashed p-6 text-center text-xs"
+            >
+              {anexosQ.isPending ? 'Carregando imagem…' : `Não foi possível abrir “${img.nome}”.`}
+            </div>
+          )
+        }
+        return (
+          <img
+            key={img.id}
+            src={src}
+            alt={img.nome}
+            className="max-h-96 rounded-md border object-contain"
+          />
+        )
+      })}
 
       {arquivos.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          {arquivos.map((f) => (
-            <a
-              key={f.id}
-              href={f.url}
-              target="_blank"
-              rel="noreferrer"
-              className="hover:bg-accent flex items-center gap-2 rounded-md border p-2.5 text-sm transition-colors"
-            >
-              <FileText className="text-muted-foreground size-4" />
-              <span className="flex-1 truncate">{f.nome}</span>
-              <span className="text-primary text-xs font-medium">Baixar ↗</span>
-            </a>
-          ))}
+          {arquivos.map((f) => {
+            const href = urls.get(f.path)
+            if (!href) {
+              return (
+                <div
+                  key={f.id}
+                  className="text-muted-foreground flex items-center gap-2 rounded-md border border-dashed p-2.5 text-sm"
+                >
+                  <FileText className="size-4" />
+                  <span className="flex-1 truncate">{f.nome}</span>
+                  <span className="text-xs">
+                    {anexosQ.isPending ? 'liberando…' : 'indisponível'}
+                  </span>
+                </div>
+              )
+            }
+            return (
+              <a
+                key={f.id}
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:bg-accent flex items-center gap-2 rounded-md border p-2.5 text-sm transition-colors"
+              >
+                <FileText className="text-muted-foreground size-4" />
+                <span className="flex-1 truncate">{f.nome}</span>
+                <span className="text-primary text-xs font-medium">Baixar ↗</span>
+              </a>
+            )
+          })}
         </div>
       )}
     </div>

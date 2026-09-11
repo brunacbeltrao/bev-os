@@ -10,7 +10,15 @@ import type { Person } from './org'
 export interface AnnouncementAttachment {
   id: string
   nome: string
-  url: string
+  /**
+   * Caminho dentro do bucket privado, não a URL.
+   *
+   * Até 11/09 aqui ficava a URL pública já montada, e o bucket `avisos` era
+   * o último dos cinco ainda aberto — qualquer pessoa com o link lia o
+   * anexo sem estar logada. Guardar endereço de arquivo é o que obrigava o
+   * bucket a continuar público.
+   */
+  path: string
   tipo: 'imagem' | 'arquivo'
 }
 
@@ -32,7 +40,7 @@ export async function getAnnouncements(cycleId: string, search?: string): Promis
   let query = supabase
     .from('announcements')
     .select(
-      '*, autor:people!announcements_autor_id_fkey(id, nome, foto_url), reads:announcement_reads(person_id), attachments:announcement_attachments(id, nome, url, tipo)',
+      '*, autor:people!announcements_autor_id_fkey(id, nome, foto_url), reads:announcement_reads(person_id), attachments:announcement_attachments(id, nome, path, tipo)',
     )
     .eq('cycle_id', cycleId)
     .order('created_at', { ascending: false })
@@ -66,15 +74,35 @@ export async function createAnnouncement(input: {
     const path = `${data.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
     const { error: upErr } = await supabase.storage.from('avisos').upload(path, file)
     if (upErr) throw upErr
-    const { data: pub } = supabase.storage.from('avisos').getPublicUrl(path)
     const { error: attErr } = await supabase.from('announcement_attachments').insert({
       announcement_id: data.id,
       nome: file.name,
-      url: pub.publicUrl,
+      path,
       tipo: file.type.startsWith('image/') ? 'imagem' : 'arquivo',
     })
     if (attErr) throw attErr
   }
+}
+
+/**
+ * URLs temporárias dos anexos de um aviso, num pedido só.
+ *
+ * Cinco minutos: tempo de ler o aviso e abrir o anexo, não de o link
+ * circular por aí. Um aviso aberto por vez, então é uma ida ao Storage por
+ * aviso lido — e `createSignedUrls` assina a lista inteira de uma vez.
+ */
+export async function urlsDeAnexos(paths: string[]): Promise<Map<string, string>> {
+  if (paths.length === 0) return new Map()
+  const { data, error } = await supabase.storage.from('avisos').createSignedUrls(paths, 300)
+  if (error) throw error
+
+  const urls = new Map<string, string>()
+  for (const item of data ?? []) {
+    // Anexo cujo objeto sumiu vem com erro e sem URL: fica de fora, e a
+    // tela mostra que não abriu em vez de pendurar um link quebrado.
+    if (item.path && item.signedUrl) urls.set(item.path, item.signedUrl)
+  }
+  return urls
 }
 
 export async function updateAnnouncement(

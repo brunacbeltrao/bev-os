@@ -116,9 +116,11 @@ export async function getServicoEtapas(servicoId: string | null): Promise<Servic
 /**
  * Rótulos da execução da Onda A.
  *
- * A coluna `etapa_execucao` não é mais escrita, mas linhas antigas do
- * histórico ainda guardam estes valores — sem o mapa, a linha do tempo
- * mostraria `gru_aguardando_pagamento` cru para quem for ler o passado.
+ * A coluna `etapa_execucao` saiu do banco em 11/09 — nunca chegou a
+ * carregar dado em produção. O mapa fica porque o valor continua aceito em
+ * `epeas_contract_history.campo`: se uma restauração trouxer histórico
+ * antigo, a linha do tempo mostra "Aguardando pagamento" em vez de
+ * `gru_aguardando_pagamento` cru.
  */
 const ETAPA_EXECUCAO_LEGADO: Record<string, string> = {
   gru_emitir: 'GRU a emitir',

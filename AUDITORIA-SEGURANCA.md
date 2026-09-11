@@ -15,7 +15,7 @@ produção foi alterado por esta auditoria — conferido ao final de cada teste.
 |---|---|---|---|
 | 1 | 30 funções `SECURITY DEFINER` respondiam sem login | **Crítico** | **corrigido e no ar** |
 | 2 | Policies de storage não recortam por permissão | **Crítico** | **corrigido e no ar** |
-| 3 | Buckets `financeiro` e `epeas` públicos | **Alto** | **fechados e no ar**; `avisos` segue público (§3.3) |
+| 3 | Buckets `financeiro` e `epeas` públicos | **Alto** | **fechados e no ar**; `avisos` **fechado em 11/09** (§3.3) |
 | 4 | `resumo_exclusao_cadastro` checava 7 de 28 impedimentos | **Alto** | **corrigido e no ar** |
 | 5 | `is_gestao` sem filtro de cargo | **Alto** | **resolvido** — permissão por fase (§2.3) |
 | 6 | `excluir_cadastro` travava o recadastro | **Médio** | **corrigido e no ar** |
@@ -243,12 +243,22 @@ foi mostrado na hora), gravada dentro da própria função. Sem FK para `people`
 o registro morreria junto com a pessoa. Só a Diretoria lê; ninguém edita nem apaga
 pela API, porque não existe policy de escrita — só a função grava.
 
-### 3.3 `avisos` continua público
+### 3.3 `avisos` — fechado em 11/09
 
-`avisos` guarda a **URL pública gravada** em `announcements.anexo_url` (2 arquivos
-hoje), diferente de `financeiro`/`epeas`, que montam a URL na leitura. Fechar o bucket
-sem antes trocar a coluna para caminho quebraria os anexos existentes. Deixei público
-de propósito e separado — é uma migration de dados pequena, mas é outra mudança.
+`avisos` guardava a **URL pública gravada** em `announcement_attachments.url`,
+diferente de `financeiro`/`epeas`, que montam a URL na leitura. Fechar o bucket sem
+antes trocar a coluna quebraria os anexos existentes, então ficou separado.
+
+Resolvido em `20260911000002`: a coluna virou `path`, a URL passou a ser assinada na
+leitura (5 min, via `createSignedUrls`), a coluna `url` saiu e o bucket fechou, com
+teto de 10 MB e lista de tipos. O `drop column` só roda depois de uma guarda provar
+que todo anexo tem caminho **e** que esse caminho corresponde a um objeto que existe
+de fato no bucket — sem isso, um formato de URL inesperado viraria anexo órfão sem a
+coluna original para consertar.
+
+As policies de storage do `avisos` já estavam certas desde 03/09. A leitura é
+bucket-inteiro **de propósito** aqui: o mural é institucional e toda a EJ lê todo
+aviso. Não é o caso de `financeiro`/`epeas`, onde a policy precisa recortar por pasta.
 
 `avatares` e `bevskills` seguem públicos por decisão: foto de perfil e material de curso.
 
@@ -339,9 +349,11 @@ retorna **zero linhas**: todas as FKs para `people` estão com `CASCADE` no upda
 Confirma a leitura do handoff.
 
 **As 4 views `SECURITY DEFINER`** (`bevcoins_ranking`, `dashboard_entrega`,
-`dashboard_warnings`, `liderados_view`) continuam sinalizadas pelo advisor. Não
-reinvestiguei: o handoff diz que cada uma tem filtro explícito no `WHERE` e `COMMENT`
-no banco explicando. Mantida a recomendação de **não** converter sem ler o comentário.
+`dashboard_warnings`, `liderados_view`) continuam sinalizadas pelo advisor.
+Verificadas em 11/09 — ver "Rodada de 11/09". O handoff estava certo: cada uma tem
+guarda explícita no `WHERE` e nenhuma é concedida a `anon`. **Não** converter para
+`security_invoker`: o ponto delas é justamente contar linhas que o RLS do leitor
+esconderia, e a permissão é checada dentro da própria view.
 
 ---
 
@@ -436,13 +448,38 @@ where n.nspname='public' and p.prosecdef
 -- deve devolver apenas check_roster_email
 ```
 
+### Rodada de 11/09
+
+Fechados nesta rodada, todos verificados no banco depois de aplicados:
+
+- **`avisos` fechado** (§3.3) — último dos cinco buckets. Coluna de URL virou caminho,
+  URL assinada na leitura, bucket privado com teto e lista de tipos.
+- **`etapa_execucao` removida** — coluna legada da Onda A, 0 de 32 contratos com valor
+  e 0 linhas de histórico. Os dois gatilhos que a liam foram reescritos **antes** do
+  `drop`: foi a ordem inversa que quebrou a aba EPEAS numa tentativa anterior.
+- **4 funções deixaram de responder sem login** — `bev_catalogo`,
+  `domingo_de_pascoa`, `semear_feriados`, `epeas_carimba_etapa` e `set_updated_at`.
+  Duas delas eram minhas, da migration de feriados: é a **terceira** vez que o mesmo
+  esquecimento aparece no projeto. Aqui **não houve vazamento** — testado como `anon`,
+  o RLS bloqueou `bev_catalogo` e `semear_feriados`, e `domingo_de_pascoa` é
+  aritmética pura. Fechado por ser superfície sem motivo, não por ter vazado.
+- **`search_path` fixo** em `epeas_diretoria_da_etapa`, `domingo_de_pascoa` e
+  `semear_feriados`.
+- **As 4 views `SECURITY DEFINER` foram, enfim, verificadas** (antes eu tinha aceitado
+  a palavra do handoff). Cada uma tem guarda explícita no `WHERE`:
+  `dashboard_entrega` → `is_lideranca() OR is_direx()`; `dashboard_warnings` →
+  `is_direx() OR is_leader_of(pc_subarea_id())`; `liderados_view` →
+  `is_leader_of()` mais recorte por papel; `bevcoins_ranking` é ranking público por
+  definição. Nenhuma é concedida a `anon`. O alerta do advisor é falso positivo
+  **neste** código — segue valendo não converter para `security_invoker`.
+
 ### Continua pendente
 
-- **`avisos` segue público** (§3.3). Diferente dos outros, ele guarda a URL pública
-  gravada em `announcements.anexo_url`, então fechar exige trocar a coluna por caminho
-  antes. São 2 arquivos, anexo de comunicado interno.
+Os três itens abaixo **não são código**: vivem no painel do Supabase, e nenhuma
+ferramenta desta sessão os alcança.
+
 - **`check_roster_email`** (§3.4) — decisão sua: fechar custa o preenchimento
-  automático do `/cadastro`.
+  automático do `/cadastro`. É a única função que ainda responde sem login.
 - **`auth_leaked_password_protection` desativado** — Authentication → Policies.
 - **SMTP e Redirect URLs** — confirmar `https://bev-os.vercel.app/nova-senha` nas
   Redirect URLs, e trocar o SMTP padrão do Supabase pelo Google Workspace.
