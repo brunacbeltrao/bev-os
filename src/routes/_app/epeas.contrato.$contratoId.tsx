@@ -266,8 +266,11 @@ function ContratoEpeasPage() {
                             {etapa.nome}
                           </span>
                           <span className="text-muted-foreground block text-xs">
-                            SLA interno de {etapa.prazo_quantidade}{' '}
-                            {UNIDADE_LABELS[etapa.unidade_prazo as UnidadePrazo]}
+                            {etapa.prazo_tipo === 'condicionado'
+                              ? `Sem prazo nosso — ${etapa.prazo_condicao ?? 'aguarda evento externo'}`
+                              : `SLA interno de ${etapa.prazo_quantidade} ${
+                                  UNIDADE_LABELS[etapa.unidade_prazo as UnidadePrazo]
+                                }`}
                           </span>
                         </span>
                         {atual && slaExecucao && (

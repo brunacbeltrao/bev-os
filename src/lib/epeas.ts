@@ -81,8 +81,11 @@ export interface ServicoEtapa {
   servico_id: string
   ordem: number
   nome: string
-  /** SLA INTERNO da etapa, na unidade abaixo. Não é o prazo do cliente. */
-  prazo_quantidade: number
+  /**
+   * SLA INTERNO da etapa, na unidade abaixo. Não é o prazo do cliente.
+   * Nulo em etapa condicionada, que não tem prazo nosso a cobrar.
+   */
+  prazo_quantidade: number | null
   /**
    * Dias úteis quando quem executa somos nós; dias corridos quando a etapa
    * é espera por órgão público, que não conhece o nosso calendário.
@@ -91,10 +94,12 @@ export interface ServicoEtapa {
   prazo_tipo: string | null
   /** Nulo = o prazo conta da entrada na etapa. */
   evento_gatilho: string | null
+  /** Só em etapa condicionada: o que se está esperando, para a tela dizer. */
+  prazo_condicao: string | null
 }
 
 const SERVICO_ETAPA_SELECT =
-  'id, servico_id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho'
+  'id, servico_id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho, prazo_condicao'
 
 /** Trilha de um serviço, em ordem. Vazia = serviço sem trilha configurada. */
 export async function getServicoEtapas(servicoId: string | null): Promise<ServicoEtapa[]> {
@@ -197,7 +202,7 @@ const SELECT = `
     servico:project_services(id, nome),
     responsavel:people!contratos_responsavel_id_fkey(id, nome)
   ),
-  etapa_servico:servico_etapas(id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho),
+  etapa_servico:servico_etapas(id, ordem, nome, prazo_quantidade, unidade_prazo, prazo_tipo, evento_gatilho, prazo_condicao),
   nucleo:project_nucleos(id, nome, slug),
   gestao_responsavel:people!epeas_lifecycle_gestao_responsavel_id_fkey(id, nome),
   gerente_nucleo:people!epeas_lifecycle_gerente_nucleo_id_fkey(id, nome),

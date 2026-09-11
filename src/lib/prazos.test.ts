@@ -87,6 +87,37 @@ describe('prazo condicionado', () => {
     expect(r.explicacao).toContain('decisão de mérito do INPI')
   })
 
+  it('etapa condicionada da trilha não cobra prazo nosso', () => {
+    // A forma real da linha em servico_etapas depois da reclassificação:
+    // "Monitoramento de oposição e deferimento" espera o INPI decidir.
+    const r = calcularPrazo({
+      ...base,
+      config: {
+        tipo: 'condicionado',
+        quantidade: null,
+        condicao: 'Decisão do INPI sobre oposição e deferimento',
+      },
+      hoje: '2027-06-01',
+      baseline: '2026-01-05',
+    })
+    expect(r.atrasado).toBe(false)
+    expect(r.situacao).toBe('aguardando_gatilho')
+    expect(r.explicacao).toContain('Decisão do INPI')
+  })
+
+  it('prazo por evento sem quantidade é "sem prazo", não conta errado', () => {
+    // Rede de segurança para o tipo trocado sem limpar o número: o banco já
+    // barra pela constraint, mas o motor não pode inventar prazo por isso.
+    const r = calcularPrazo({
+      ...base,
+      config: { tipo: 'apos_evento', quantidade: null },
+      hoje: '2027-06-01',
+      baseline: '2026-01-05',
+    })
+    expect(r.situacao).toBe('sem_prazo')
+    expect(r.atrasado).toBe(false)
+  })
+
   it('mostra qual evento está esperando mesmo sem texto de condição', () => {
     const r = calcularPrazo({ ...base, config: { tipo: 'condicionado' }, hoje: '2026-09-09' })
     expect(r.atrasado).toBe(false)

@@ -253,6 +253,7 @@ export function slaEtapaServico(
       quantidade: c.etapa_servico.prazo_quantidade,
       unidade: c.etapa_servico.unidade_prazo as UnidadePrazo,
       eventoGatilho: (c.etapa_servico.evento_gatilho ?? null) as EventoTipo | null,
+      condicao: c.etapa_servico.prazo_condicao,
     },
     eventos: ctx.eventos.get(c.contrato_id) ?? [],
     suspensoes: ctx.suspensoes.get(c.contrato_id) ?? [],
