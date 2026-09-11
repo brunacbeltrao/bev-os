@@ -222,6 +222,19 @@ export interface EpeasContrato {
   excecoes_abertas: number
 }
 
+/**
+ * O `!epeas_lifecycle_estado_motivo_id_fkey` em `estado_motivo` não é enfeite.
+ *
+ * Existem DUAS foreign keys de `epeas_lifecycle` para `epeas_estado_motivos`:
+ * a simples, por `estado_motivo_id`, e a composta `(estado_motivo_id, estado)`,
+ * que é o que impede marcar "concluído" com motivo de inadimplência. O
+ * PostgREST não escolhe entre elas sozinho — responde 300 (PGRST201, "more
+ * than one relationship was found") e a aba inteira do EPEAS cai. Nomear a
+ * constraint resolve sem abrir mão de nenhuma das duas garantias.
+ *
+ * Aconteceu em produção em 11/09. Qualquer embed novo para uma tabela que
+ * tenha mais de uma FK precisa do mesmo tratamento.
+ */
 const SELECT = `
   id, contrato_id, gestao_responsavel_id, nucleo_id, gerente_nucleo_id,
   assessores_projeto_ids, scrum_master_id, etapa_macro, etapa_servico_id,
@@ -233,7 +246,7 @@ const SELECT = `
   prazo_tipo, prazo_quantidade, prazo_unidade, prazo_quantidade_min,
   prazo_clausula, prazo_evento_gatilho, prazo_condicao,
   estado, estado_em, estado_motivo_id, estado_observacao,
-  estado_motivo:epeas_estado_motivos(id, codigo, label),
+  estado_motivo:epeas_estado_motivos!epeas_lifecycle_estado_motivo_id_fkey(id, codigo, label),
   contrato:contratos!inner(
     id, cliente, nome_comercial, valor, data_fechamento, responsavel_id,
     servico:project_services(id, nome),
